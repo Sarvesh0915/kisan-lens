@@ -1,0 +1,1560 @@
+<!DOCTYPE html>
+<html lang="mr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>KisanLens – शेतकरी डॅशबोर्ड</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Noto+Sans:ital,wght@0,400;0,500;0,700;1,400&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --green:#15803d;
+  --green-l:#22c55e;
+  --yellow:#facc15;
+  --bg:#f8fafc;
+  --radius:20px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Noto Sans',sans-serif;background:var(--bg);color:#1e293b;padding-bottom:calc(64px + env(safe-area-inset-bottom, 0px));}
+.brand{font-family:'Baloo 2',cursive;}
+
+/* ── Views ── */
+.view{display:none;}
+.view.active{display:block;}
+
+/* ── Feature Cards ── */
+.feature-card{
+  background:white;
+  border-radius:var(--radius);
+  padding:1.5rem;
+  box-shadow:0 2px 12px rgba(0,0,0,.07);
+  cursor:pointer;
+  transition:transform .2s,box-shadow .2s;
+  border:2px solid transparent;
+  position:relative;
+  overflow:hidden;
+}
+.feature-card:hover{
+  transform:translateY(-4px);
+  box-shadow:0 8px 28px rgba(21,128,61,.18);
+  border-color:var(--green-l);
+}
+.feature-card:active{transform:scale(.97);}
+.feature-card .icon-wrap{
+  width:64px;height:64px;border-radius:18px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:2rem;margin-bottom:.9rem;
+}
+
+/* ── Upload zone ── */
+.upload-zone{
+  border:2.5px dashed #86efac;
+  border-radius:16px;
+  background:#f0fdf4;
+  transition:all .2s;
+  cursor:pointer;
+}
+.upload-zone:hover,.upload-zone.drag-over{
+  border-color:var(--green);background:#dcfce7;
+}
+
+/* ── Skeleton ── */
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+.skeleton{
+  background:linear-gradient(90deg,#e5e7eb 25%,#f3f4f6 50%,#e5e7eb 75%);
+  background-size:200% 100%;
+  animation:shimmer 1.4s infinite;
+  border-radius:.5rem;
+}
+
+/* ── Result box (legacy plain text — still used as a fallback) ── */
+.result-box{white-space:pre-wrap;line-height:1.9;font-size:.9rem;}
+
+/* ── Formatted AI Response — clean cards instead of raw text dump ── */
+.ai-response{display:flex;flex-direction:column;gap:.85rem;}
+.ai-section{
+  background:white;border-radius:16px;border:1.5px solid #e5e7eb;
+  padding:1.1rem 1.15rem;box-shadow:0 1px 4px rgba(0,0,0,.04);
+}
+.ai-section-head{
+  display:flex;align-items:center;gap:.55rem;
+  font-weight:800;font-size:.95rem;color:#1e293b;
+  margin-bottom:.7rem;padding-bottom:.6rem;
+  border-bottom:1.5px dashed #e2e8f0;
+}
+.ai-section-head .ai-section-icon{
+  font-size:1.3rem;width:2.1rem;height:2.1rem;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:10px;background:#f0fdf4;
+}
+.ai-bullet{
+  display:flex;align-items:flex-start;gap:.6rem;
+  padding:.45rem 0;font-size:.88rem;line-height:1.65;color:#374151;
+}
+.ai-bullet:not(:last-child){border-bottom:1px solid #f1f5f9;}
+.ai-bullet .ai-dot{
+  flex-shrink:0;width:7px;height:7px;border-radius:50%;
+  background:var(--green-l);margin-top:.5rem;
+}
+/* Key-value style bullets — bolds the label before the colon for scanability */
+.ai-bullet b.ai-key{color:#0f4c2a;font-weight:700;}
+/* Highlight chip for important numeric values (dosage, totals, warnings) */
+.ai-highlight{
+  display:inline-flex;align-items:center;gap:.3rem;
+  background:#fef9c3;color:#854d0e;font-weight:700;
+  border-radius:8px;padding:.1rem .5rem;font-size:.85rem;
+  border:1px solid #fde68a;
+}
+.ai-warning-section{border-color:#fecaca;background:#fff5f5;}
+.ai-warning-section .ai-section-head{color:#b91c1c;border-bottom-color:#fecaca;}
+.ai-warning-section .ai-section-icon{background:#fee2e2;}
+.ai-remedy-section{border-color:#86efac;background:linear-gradient(135deg,#f0fdf4,#f7fffa);}
+.ai-remedy-section .ai-section-head{color:#15803d;border-bottom-color:#bbf7d0;}
+.ai-remedy-section .ai-section-icon{background:#dcfce7;}
+
+/* ── Tabs ── */
+.tab-pill{
+  padding:.5rem 1.1rem;border-radius:9999px;
+  font-size:.82rem;font-weight:600;cursor:pointer;
+  border:2px solid #e2e8f0;color:#64748b;
+  transition:all .18s;white-space:nowrap;
+}
+.tab-pill.active{background:var(--green);color:white;border-color:var(--green);}
+
+/* ── Timeline ── */
+.tl-dot-done{background:var(--green);}
+.tl-dot-current{background:#f59e0b;box-shadow:0 0 0 4px rgba(245,158,11,.22);}
+.tl-dot-upcoming{background:#d1d5db;}
+
+/* ── Trend badges ── */
+.trend-up{background:#dcfce7;color:#15803d;}
+.trend-down{background:#fee2e2;color:#dc2626;}
+.trend-same{background:#f3f4f6;color:#6b7280;}
+
+/* ── Scheme card ── */
+.scheme-card{border-radius:16px;background:white;border:1.5px solid #e2e8f0;
+  padding:1.1rem;transition:transform .15s,box-shadow .15s;}
+.scheme-card:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(0,0,0,.09);}
+
+/* ── Remedy card ── */
+.remedy-card{
+  border-radius:16px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);
+  border:1.5px solid #86efac;padding:1.1rem;
+}
+
+/* ── Crop picker cards ── */
+.crop-card{
+  border-radius:14px;background:white;border:2px solid #e2e8f0;
+  padding:1.1rem .6rem;text-align:center;cursor:pointer;
+  transition:all .18s;
+}
+.crop-card:hover,.crop-card.selected{
+  border-color:var(--green);background:#f0fdf4;
+  box-shadow:0 4px 14px rgba(21,128,61,.15);
+}
+.crop-card.selected .crop-emoji{transform:scale(1.2);}
+.crop-emoji{transition:transform .2s;display:block;font-size:2.3rem;margin-bottom:.4rem;}
+
+/* ── Roadmap step cards (Crop Doctor-style numbered steps) ── */
+.rm-step-card{
+  background:white;border-radius:18px;border:1.5px solid #e5e7eb;
+  padding:1.2rem 1.1rem;box-shadow:0 1px 6px rgba(0,0,0,.05);
+}
+.rm-step-head{display:flex;align-items:center;gap:.6rem;margin-bottom:1rem;}
+.rm-step-num{
+  width:1.6rem;height:1.6rem;border-radius:50%;flex-shrink:0;
+  background:var(--green);color:white;font-weight:800;font-size:.8rem;
+  display:flex;align-items:center;justify-content:center;
+}
+
+/* ── Guest modal ── */
+#gm-overlay{
+  display:none;position:fixed;inset:0;z-index:9999;
+  background:rgba(0,0,0,.55);backdrop-filter:blur(4px);
+  align-items:center;justify-content:center;padding:1.5rem;
+}
+#gm-overlay.open{display:flex;}
+#gm-box{
+  background:white;border-radius:24px;width:100%;max-width:21rem;
+  padding:2rem 1.75rem 1.75rem;text-align:center;
+  box-shadow:0 24px 60px rgba(0,0,0,.3);
+  animation:slideUp .28s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes slideUp{from{opacity:0;transform:translateY(22px) scale(.95)}to{opacity:1;transform:none}}
+
+/* ── Top nav ── */
+#topnav{
+  position:sticky;top:0;z-index:50;
+  background:var(--green);
+  box-shadow:0 2px 12px rgba(21,128,61,.3);
+}
+
+
+
+/* ── Swipe container ── */
+.swipe-scroll{
+  display:flex;gap:1rem;overflow-x:auto;
+  scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;
+  padding-bottom:.5rem;scrollbar-width:none;
+}
+.swipe-scroll::-webkit-scrollbar{display:none;}
+.swipe-scroll > *{scroll-snap-align:start;flex-shrink:0;}
+
+/* ── Acre slider ── */
+input[type=range]{accent-color:var(--green);}
+
+/* ── Language selector ── */
+#lang-select{
+  background:rgba(255,255,255,.18);border:1.5px solid rgba(255,255,255,.3);
+  color:white;border-radius:10px;padding:.3rem .6rem;
+  font-size:.8rem;font-weight:600;cursor:pointer;
+  -webkit-appearance:none;appearance:none;
+}
+#lang-select option{background:#15803d;color:white;}
+
+/* ── Page header (back button + title) ── */
+.page-header{
+  background:var(--green);color:white;
+  padding:1rem 1.25rem;
+  display:flex;align-items:center;gap:.75rem;
+}
+.back-btn{
+  background:rgba(255,255,255,.2);border:none;color:white;
+  border-radius:10px;padding:.4rem .75rem;font-size:.9rem;
+  cursor:pointer;transition:background .18s;
+}
+.back-btn:hover{background:rgba(255,255,255,.3);}
+
+/* ── Bottom Navigation v2 — Home + Account only ──────────────────────── */
+/* env(safe-area-inset-bottom) reserves space above Android's gesture-nav
+   strip / iPhone home indicator so the bar is never obscured by it.
+   The fallback "0px" keeps this safe on browsers that don't support env(). */
+#botnav2{
+  position:fixed;bottom:0;left:0;right:0;z-index:60;
+  background:white;border-top:1.5px solid #e2e8f0;
+  display:flex;justify-content:center;align-items:stretch;
+  gap:2.5rem;
+  padding:.5rem 0 calc(.4rem + env(safe-area-inset-bottom, 0px));
+  box-shadow:0 -4px 20px rgba(0,0,0,.08);
+}
+.bn2-btn{
+  display:flex;flex-direction:column;align-items:center;
+  gap:.2rem;padding:.4rem 1.75rem;cursor:pointer;
+  font-size:.72rem;font-weight:700;color:#94a3b8;
+  border-radius:14px;border:none;background:none;
+  transition:color .18s,background .18s;
+}
+.bn2-btn.active{color:var(--green);background:#f0fdf4;}
+.bn2-btn .bn2-icon{font-size:1.55rem;line-height:1;}
+
+/* ── Language pills inside Account view ── */
+.lang-pill{border-color:#e2e8f0;color:#64748b;background:white;}
+.lang-pill.active{border-color:var(--green);color:var(--green);background:#f0fdf4;}
+
+/* ── Footer ── */
+.kl-footer{
+  margin-top:2.5rem;
+  background:linear-gradient(160deg,#0f4c2a 0%,#15803d 100%);
+  border-radius:24px;
+  padding:2rem 1.5rem 1.75rem;
+  text-align:center;
+  color:#dcfce7;
+}
+.kl-footer-divider{
+  height:1px;background:rgba(255,255,255,.15);
+  margin:1.25rem 0;
+}
+.kl-footer-brand{
+  display:flex;align-items:center;justify-content:center;gap:.5rem;
+  margin-bottom:1rem;
+}
+.kl-footer-disclaimer{
+  font-size:.78rem;line-height:1.75;color:#bbf7d0;
+  max-width:38rem;margin:0 auto;
+}
+.kl-footer-agree{
+  font-size:.78rem;color:#86efac;margin-top:.85rem;font-weight:500;
+}
+.kl-footer-links{
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:center;
+  gap:.4rem;font-size:.8rem;
+}
+.kl-footer-links button{
+  background:none;border:none;color:#dcfce7;font-weight:600;
+  cursor:pointer;padding:.3rem .2rem;transition:color .15s;
+  font-family:inherit;font-size:inherit;
+}
+.kl-footer-links button:hover{color:white;text-decoration:underline;}
+.kl-footer-dot{color:rgba(255,255,255,.3);}
+.kl-footer-copyright{font-size:.75rem;color:#86efac;}
+.kl-footer-tagline{
+  font-size:.82rem;font-weight:700;color:white;margin-top:.4rem;
+}
+@media(max-width:480px){
+  .kl-footer{padding:1.75rem 1.1rem 1.5rem;border-radius:20px;}
+  .kl-footer-links{gap:.3rem;font-size:.75rem;}
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════
+     TOP NAVBAR
+══════════════════════════════════════════════════════════ -->
+<nav id="topnav" class="px-4 py-3 flex items-center justify-between gap-3">
+  <div class="flex items-center gap-2">
+    <span class="text-2xl">🌿</span>
+    <span class="brand text-xl font-extrabold text-white">KisanLens</span>
+  </div>
+  <div class="flex items-center gap-2">
+    <!-- Language selector -->
+    <select id="lang-select" onchange="setLang(this.value)">
+      <option value="mr" selected>🇮🇳 मराठी</option>
+      <option value="hi">🇮🇳 हिंदी</option>
+      <option value="en">🇬🇧 English</option>
+    </select>
+    {% if is_guest %}
+      <a href="/login" class="text-xs bg-white/20 hover:bg-white/30 text-white rounded-lg px-3 py-1.5 font-medium transition">
+        लॉगिन
+      </a>
+      <a href="/signup" class="text-xs bg-yellow-400 hover:bg-yellow-300 text-gray-900 font-bold rounded-lg px-3 py-1.5 transition">
+        नोंदणी
+      </a>
+    {% else %}
+      <!-- User avatar + name -->
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-full bg-yellow-400 flex items-center justify-center font-bold text-sm text-gray-900">
+          {{ user.name[0] | upper }}
+        </div>
+        <span class="text-white text-sm font-medium hidden sm:block">{{ user.name }}</span>
+      </div>
+      <a href="/logout" class="text-xs bg-white/20 hover:bg-white/30 text-white rounded-lg px-3 py-1.5 transition">
+        बाहेर
+      </a>
+    {% endif %}
+  </div>
+</nav>
+
+<!-- ══════════════════════════════════════════════════════════
+     VIEW: HOME DASHBOARD
+══════════════════════════════════════════════════════════ -->
+<div id="view-home" class="view active px-4 py-5 max-w-4xl mx-auto">
+
+  <!-- Welcome -->
+  <div class="mb-5">
+    <p class="text-green-600 text-sm font-medium" data-i18n="welcome_sub">नमस्कार 🙏</p>
+    <h1 class="brand text-3xl font-extrabold text-gray-900 mt-0.5">
+      {% if is_guest %}
+        <span data-i18n="welcome_guest">{{ user.name }} 👋</span>
+      {% else %}
+        स्वागत आहे, {{ user.name }} 👋
+      {% endif %}
+    </h1>
+    <p class="text-gray-500 text-sm mt-1" data-i18n="welcome_desc">आजचे शेत कसे आहे?</p>
+  </div>
+
+  <!-- Feature grid -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+
+    <!-- 1. Crop Doctor -->
+    <div class="feature-card" onclick="openView('crop-doctor')">
+      <div class="icon-wrap bg-green-100"><span>🔬</span></div>
+      <h3 class="font-bold text-gray-900 text-base mb-1" data-i18n="feat_cd_title">पीक डॉक्टर</h3>
+      <p class="text-gray-500 text-sm" data-i18n="feat_cd_desc">फोटो काढा — AI रोग ओळखेल व उपाय सांगेल</p>
+      <div class="mt-3 inline-flex items-center gap-1 text-green-600 text-xs font-bold">
+        <span data-i18n="feat_try">वापरा</span> <span>→</span>
+      </div>
+      {% if is_guest %}
+        <span class="absolute top-3 right-3 bg-amber-100 text-amber-700 text-xs font-bold px-2 py-0.5 rounded-full">🔒 लॉगिन लागेल</span>
+      {% endif %}
+    </div>
+
+    <!-- 2. Label Scanner -->
+    <div class="feature-card" onclick="openView('label-scanner')">
+      <div class="icon-wrap bg-yellow-100"><span>🏷️</span></div>
+      <h3 class="font-bold text-gray-900 text-base mb-1" data-i18n="feat_ls_title">लेबल स्कॅनर</h3>
+      <p class="text-gray-500 text-sm" data-i18n="feat_ls_desc">रासायनिक लेबल स्कॅन करा — स्वस्त पर्याय जाणून घ्या</p>
+      <div class="mt-3 inline-flex items-center gap-1 text-yellow-600 text-xs font-bold">
+        <span data-i18n="feat_try">वापरा</span> <span>→</span>
+      </div>
+    </div>
+
+    <!-- 3. Crop Roadmap -->
+    <div class="feature-card" onclick="openView('roadmap')">
+      <div class="icon-wrap bg-blue-100"><span>📅</span></div>
+      <h3 class="font-bold text-gray-900 text-base mb-1" data-i18n="feat_rm_title">पीक आराखडा</h3>
+      <p class="text-gray-500 text-sm" data-i18n="feat_rm_desc">पीक निवडा — संपूर्ण वेळापत्रक मिळवा</p>
+      <div class="mt-3 inline-flex items-center gap-1 text-blue-600 text-xs font-bold">
+        <span data-i18n="feat_try">वापरा</span> <span>→</span>
+      </div>
+    </div>
+
+    <!-- 4. Mandi Prices -->
+    <div class="feature-card" onclick="openView('mandi')">
+      <div class="icon-wrap bg-orange-100"><span>📈</span></div>
+      <h3 class="font-bold text-gray-900 text-base mb-1" data-i18n="feat_mp_title">बाजार भाव</h3>
+      <p class="text-gray-500 text-sm" data-i18n="feat_mp_desc">आजचे घाऊक बाजारभाव एका नजरेत</p>
+      <div class="mt-3 inline-flex items-center gap-1 text-orange-600 text-xs font-bold">
+        <span data-i18n="feat_try">वापरा</span> <span>→</span>
+      </div>
+    </div>
+
+    <!-- 5. Gov Schemes -->
+    <div class="feature-card" onclick="openView('schemes')">
+      <div class="icon-wrap bg-purple-100"><span>🏛️</span></div>
+      <h3 class="font-bold text-gray-900 text-base mb-1" data-i18n="feat_gs_title">शासकीय योजना</h3>
+      <p class="text-gray-500 text-sm" data-i18n="feat_gs_desc">तुमच्यासाठी पात्र योजना शोधा</p>
+      <div class="mt-3 inline-flex items-center gap-1 text-purple-600 text-xs font-bold">
+        <span data-i18n="feat_try">वापरा</span> <span>→</span>
+      </div>
+    </div>
+
+  </div><!-- /grid -->
+
+  <!-- Guest strip -->
+  {% if is_guest %}
+  <div class="mt-6 bg-gradient-to-r from-amber-50 to-yellow-50 border-2 border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+    <div>
+      <p class="font-bold text-amber-800 text-sm">🔒 AI विश्लेषण अनलॉक करा</p>
+      <p class="text-amber-700 text-xs mt-0.5">फोन नंबर देऊन मोफत नोंदणी करा — 30 सेकंदात!</p>
+    </div>
+    <div class="flex gap-2 flex-shrink-0">
+      <a href="/signup" class="bg-green-600 text-white text-sm font-bold px-4 py-2 rounded-xl hover:bg-green-700 transition">✨ नोंदणी करा</a>
+      <a href="/login" class="bg-white border-2 border-green-300 text-green-700 text-sm font-semibold px-4 py-2 rounded-xl hover:bg-green-50 transition">लॉगिन</a>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ══════════════════════════════════════════════════════════
+       FOOTER
+  ══════════════════════════════════════════════════════════ -->
+  <footer class="kl-footer">
+    <div class="kl-footer-divider"></div>
+
+    <div class="kl-footer-brand">
+      <span class="text-2xl">🌿</span>
+      <span class="brand text-lg font-extrabold text-white">KisanLens</span>
+    </div>
+
+    <p class="kl-footer-disclaimer" data-i18n="footer_disclaimer">
+      KisanLens शेतकऱ्यांना AI-आधारित कृषी सहाय्य पुरवते — यामध्ये पीक रोग निदान, शेती शिफारसी,
+      बाजार भाव व शासकीय योजनांची माहिती समाविष्ट आहे. आम्ही अचूकतेसाठी प्रयत्नशील असलो तरी,
+      महत्त्वाचे शेती निर्णय घेण्यापूर्वी कृपया स्थानिक कृषी तज्ञांचा सल्ला घ्या.
+    </p>
+
+    <p class="kl-footer-agree" data-i18n="footer_agree">
+      ही वेबसाईट वापरून, तुम्ही आमच्या सेवा नियम आणि गोपनीयता धोरणाशी सहमत आहात.
+    </p>
+
+    <nav class="kl-footer-links">
+      <button onclick="goHome()" data-i18n="footer_home">होम</button>
+      <span class="kl-footer-dot">·</span>
+      <button onclick="footerAlert('about')" data-i18n="footer_about">आमच्याबद्दल</button>
+      <span class="kl-footer-dot">·</span>
+      <button onclick="footerAlert('contact')" data-i18n="footer_contact">संपर्क करा</button>
+      <span class="kl-footer-dot">·</span>
+      <button onclick="footerAlert('privacy')" data-i18n="footer_privacy">गोपनीयता धोरण</button>
+      <span class="kl-footer-dot">·</span>
+      <button onclick="footerAlert('terms')" data-i18n="footer_terms">सेवा नियम</button>
+      <span class="kl-footer-dot">·</span>
+      <button onclick="footerAlert('cookie')" data-i18n="footer_cookie">कुकी धोरण</button>
+    </nav>
+
+    <div class="kl-footer-divider"></div>
+
+    <p class="kl-footer-copyright" data-i18n="footer_copyright">© 2026 KisanLens. सर्व हक्क राखीव.</p>
+    <p class="kl-footer-tagline">Made with ❤️ for Indian Farmers 🇮🇳</p>
+  </footer>
+
+</div><!-- /view-home -->
+
+
+<!-- ══════════════════════════════════════════════════════════
+     VIEW: CROP DOCTOR
+══════════════════════════════════════════════════════════ -->
+<div id="view-crop-doctor" class="view">
+  <div class="page-header">
+    <button class="back-btn" onclick="goHome()">← मागे</button>
+    <div>
+      <h2 class="brand text-xl font-extrabold" data-i18n="feat_cd_title">पीक डॉक्टर</h2>
+      <p class="text-green-200 text-xs" data-i18n="feat_cd_desc">फोटो काढा — AI रोग ओळखेल</p>
+    </div>
+  </div>
+
+  <div class="max-w-2xl mx-auto px-4 py-5 space-y-4">
+
+    <!-- Upload zone -->
+    <label class="upload-zone flex flex-col items-center justify-center gap-3 py-8 px-4" id="cd-zone"
+           onclick="{% if is_guest %}event.preventDefault();showGuestModal();{% endif %}">
+      <span class="text-5xl">📸</span>
+      <p class="text-gray-600 font-medium text-center text-sm" data-i18n="cd_upload_title">पीकाचा फोटो काढा किंवा अपलोड करा</p>
+      <p class="text-xs text-gray-400" data-i18n="cd_upload_sub">JPG, PNG, WEBP — कोणताही फॉर्मॅट चालेल</p>
+      {% if not is_guest %}
+      <input type="file" accept="image/*" capture="environment" class="hidden" id="cd-input"
+             onchange="previewImg('cd-input','cd-preview','cd-preview-wrap')"/>
+      {% endif %}
+    </label>
+
+    <!-- Preview -->
+    <div id="cd-preview-wrap" class="hidden">
+      <img id="cd-preview" class="w-full max-h-56 object-contain rounded-2xl border border-gray-200"/>
+    </div>
+
+    <!-- Acres input -->
+    {% if not is_guest %}
+    <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+      <label class="block text-sm font-semibold text-gray-700 mb-2" for="cd-acres" data-i18n="cd_acres_label">
+        📐 तुमची जमीन किती एकर आहे?
+      </label>
+      <div class="flex items-center gap-2">
+        <input type="number" id="cd-acres" min="0.25" max="500" step="0.25" value="1"
+               placeholder="उदा. 2.5"
+               class="flex-1 border-2 border-gray-200 rounded-xl px-4 py-3 text-gray-800 text-base font-semibold focus:border-green-400 focus:outline-none transition"/>
+        <span class="text-green-700 font-bold text-sm bg-green-50 rounded-xl px-3 py-3" data-i18n="acres">एकर</span>
+      </div>
+      <p class="text-xs text-gray-400 mt-1.5" data-i18n="cd_acres_hint">तुमच्या शेताचा आकार टाइप करा</p>
+    </div>
+    {% endif %}
+
+    <!-- Scan button -->
+    <button id="cd-btn" onclick="submitCropDoctor()"
+            class="w-full {% if is_guest %}bg-gray-200 text-gray-400{% else %}bg-green-600 hover:bg-green-700 text-white{% endif %} font-bold text-base rounded-2xl py-4 transition-all shadow-md flex items-center justify-center gap-2">
+      {% if is_guest %}
+        <span>🔒 </span><span data-i18n="cd_btn_guest">AI निदान अनलॉक करा</span>
+      {% else %}
+        <span data-i18n="cd_btn">🩺 पीकाचे निदान करा</span>
+      {% endif %}
+    </button>
+
+    <!-- Loader -->
+    <div id="cd-loader" class="hidden space-y-2">
+      <div class="skeleton h-4 w-3/4"></div>
+      <div class="skeleton h-4 w-full"></div>
+      <div class="skeleton h-4 w-5/6"></div>
+      <div class="skeleton h-4 w-2/3"></div>
+    </div>
+
+    <!-- Result — same tab pattern as Label Scanner: Chemical Solution / Homemade Solution -->
+    <div id="cd-result-wrap" class="hidden">
+      <div class="flex gap-2 mb-3 overflow-x-auto pb-1">
+        <button class="tab-pill active" onclick="cdTab('chemical',this)" data-i18n="cd_tab_chem">💊 रासायनिक उपाय</button>
+        <button class="tab-pill" onclick="cdTab('organic',this)" data-i18n="cd_tab_org">🌿 घरगुती उपाय</button>
+      </div>
+      <div id="cd-result" class="min-h-32"></div>
+    </div>
+  </div>
+</div><!-- /view-crop-doctor -->
+
+
+<!-- ══════════════════════════════════════════════════════════
+     VIEW: LABEL SCANNER
+══════════════════════════════════════════════════════════ -->
+<div id="view-label-scanner" class="view">
+  <div class="page-header">
+    <button class="back-btn" onclick="goHome()">← मागे</button>
+    <div>
+      <h2 class="brand text-xl font-extrabold" data-i18n="feat_ls_title">लेबल स्कॅनर</h2>
+      <p class="text-green-200 text-xs" data-i18n="feat_ls_desc">लेबल स्कॅन करा — स्वस्त पर्याय जाणून घ्या</p>
+    </div>
+  </div>
+
+  <div class="max-w-2xl mx-auto px-4 py-5 space-y-4">
+
+    <label class="upload-zone flex flex-col items-center justify-center gap-3 py-8 px-4" id="ls-zone">
+      <span class="text-5xl">🧴</span>
+      <p class="text-gray-600 font-medium text-center text-sm" data-i18n="ls_upload_title">रासायनिक कंटेनरचा फोटो काढा</p>
+      <p class="text-xs text-gray-400" data-i18n="ls_upload_sub">घटकांची यादी असलेली बाजू फोकसमध्ये ठेवा</p>
+      <input type="file" accept="image/*" capture="environment" class="hidden" id="ls-input"
+             onchange="previewImg('ls-input','ls-preview','ls-preview-wrap')"/>
+    </label>
+
+    <div id="ls-preview-wrap" class="hidden">
+      <img id="ls-preview" class="w-full max-h-52 object-contain rounded-2xl border border-gray-200"/>
+    </div>
+
+    <!-- Acres input -->
+    <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+      <label class="block text-sm font-semibold text-gray-700 mb-2" for="ls-acres" data-i18n="cd_acres_label">
+        📐 तुमची जमीन किती एकर आहे?
+      </label>
+      <div class="flex items-center gap-2">
+        <input type="number" id="ls-acres" min="0.25" max="500" step="0.25" value="1"
+               placeholder="उदा. 2.5"
+               class="flex-1 border-2 border-gray-200 rounded-xl px-4 py-3 text-gray-800 text-base font-semibold focus:border-yellow-400 focus:outline-none transition"/>
+        <span class="text-yellow-700 font-bold text-sm bg-yellow-50 rounded-xl px-3 py-3" data-i18n="acres">एकर</span>
+      </div>
+      <p class="text-xs text-gray-400 mt-1.5" data-i18n="cd_acres_hint">तुमच्या शेताचा आकार टाइप करा</p>
+    </div>
+
+    <button id="ls-btn" onclick="submitLabelScanner()"
+            class="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold text-base rounded-2xl py-4 transition-all shadow-md flex items-center justify-center gap-2">
+      <span data-i18n="ls_btn">🔍 लेबल तपासा</span>
+    </button>
+
+
+    <div id="ls-loader" class="hidden space-y-2">
+      <div class="skeleton h-4 w-3/4"></div>
+      <div class="skeleton h-4 w-full"></div>
+      <div class="skeleton h-4 w-5/6"></div>
+    </div>
+
+    <div id="ls-result-wrap" class="hidden">
+      <div class="flex gap-2 mb-3 overflow-x-auto pb-1">
+        <button class="tab-pill active" onclick="lsTab('info',this)" data-i18n="ls_tab_info">🏷️ रासायनिक माहिती</button>
+        <button class="tab-pill" onclick="lsTab('generic',this)" data-i18n="ls_tab_gen">💰 स्वस्त पर्याय</button>
+        <button class="tab-pill" onclick="lsTab('organic',this)" data-i18n="ls_tab_org">🌿 घरगुती पर्याय</button>
+      </div>
+      <div id="ls-result" class="min-h-24"></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     VIEW: CROP ROADMAP
+══════════════════════════════════════════════════════════ -->
+<div id="view-roadmap" class="view">
+  <div class="page-header">
+    <button class="back-btn" onclick="goHome()">← मागे</button>
+    <div>
+      <h2 class="brand text-xl font-extrabold" data-i18n="feat_rm_title">पीक आराखडा</h2>
+      <p class="text-green-200 text-xs">कापूस · सोयाबीन · हरभरा · गहू · तूर</p>
+    </div>
+  </div>
+
+  <div class="max-w-2xl mx-auto px-4 py-5 space-y-5">
+
+    <!-- Step 1: Crop cards -->
+    <div class="rm-step-card">
+      <div class="rm-step-head">
+        <span class="rm-step-num">1</span>
+        <p class="text-sm font-bold text-gray-800" data-i18n="rm_select_crop">तुमचे पीक निवडा:</p>
+      </div>
+      <div class="grid grid-cols-3 sm:grid-cols-5 gap-2.5" id="crop-cards">
+        <div class="crop-card" onclick="selectCrop('cotton',this)">
+          <span class="crop-emoji">🌸</span>
+          <span class="text-xs font-semibold text-gray-700" data-i18n="crop_cotton">कापूस</span>
+        </div>
+        <div class="crop-card" onclick="selectCrop('soybean',this)">
+          <span class="crop-emoji">🌿</span>
+          <span class="text-xs font-semibold text-gray-700" data-i18n="crop_soybean">सोयाबीन</span>
+        </div>
+        <div class="crop-card" onclick="selectCrop('gram',this)">
+          <span class="crop-emoji">🟤</span>
+          <span class="text-xs font-semibold text-gray-700" data-i18n="crop_gram">हरभरा</span>
+        </div>
+        <div class="crop-card" onclick="selectCrop('wheat',this)">
+          <span class="crop-emoji">🌾</span>
+          <span class="text-xs font-semibold text-gray-700" data-i18n="crop_wheat">गहू</span>
+        </div>
+        <div class="crop-card" onclick="selectCrop('turdal',this)">
+          <span class="crop-emoji">🫘</span>
+          <span class="text-xs font-semibold text-gray-700" data-i18n="crop_tur">तूर</span>
+        </div>
+      </div>
+      <input type="hidden" id="rm-crop" value=""/>
+    </div>
+
+    <!-- Step 2: Planting date -->
+    <div class="rm-step-card">
+      <div class="rm-step-head">
+        <span class="rm-step-num">2</span>
+        <p class="text-sm font-bold text-gray-800" data-i18n="rm_date_label">📆 पेरणीची तारीख:</p>
+      </div>
+      <input type="date" id="rm-date"
+             class="w-full border-2 border-gray-200 rounded-xl px-4 py-3.5 text-gray-800 text-base font-medium focus:border-blue-400 focus:outline-none transition"/>
+    </div>
+
+    <button onclick="submitRoadmap()"
+            class="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-bold text-base rounded-2xl py-4 transition-all shadow-lg flex items-center justify-center gap-2">
+      <span data-i18n="rm_btn">🗓️ आराखडा तयार करा</span>
+    </button>
+
+    <!-- Result -->
+    <div id="rm-result" class="hidden"></div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     VIEW: MANDI PRICES
+══════════════════════════════════════════════════════════ -->
+<div id="view-mandi" class="view">
+  <div class="page-header">
+    <button class="back-btn" onclick="goHome()">← मागे</button>
+    <div>
+      <h2 class="brand text-xl font-extrabold" data-i18n="feat_mp_title">बाजार भाव</h2>
+      <p class="text-green-200 text-xs" data-i18n="mandi_sub">आजचे घाऊक बाजारभाव</p>
+    </div>
+  </div>
+
+  <div class="max-w-2xl mx-auto px-4 py-5 space-y-4">
+    <div class="relative">
+      <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
+      <input type="text" id="mandi-search" placeholder="पीक शोधा…" oninput="filterMandi()"
+             class="w-full border-2 border-gray-200 rounded-xl pl-9 pr-4 py-3 text-gray-800 focus:border-green-400 focus:outline-none transition"/>
+    </div>
+    <p id="mandi-updated" class="text-xs text-gray-400"></p>
+    <div id="mandi-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div class="skeleton h-20 rounded-2xl"></div>
+      <div class="skeleton h-20 rounded-2xl"></div>
+      <div class="skeleton h-20 rounded-2xl"></div>
+      <div class="skeleton h-20 rounded-2xl"></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     VIEW: GOV SCHEMES
+══════════════════════════════════════════════════════════ -->
+<div id="view-schemes" class="view">
+  <div class="page-header">
+    <button class="back-btn" onclick="goHome()">← मागे</button>
+    <div>
+      <h2 class="brand text-xl font-extrabold" data-i18n="feat_gs_title">शासकीय योजना</h2>
+      <p class="text-green-200 text-xs" data-i18n="schemes_sub">तुमच्यासाठी पात्र योजना</p>
+    </div>
+  </div>
+
+  <div class="max-w-2xl mx-auto px-4 py-5 space-y-3">
+    {% if is_guest %}
+    <div class="bg-amber-50 border-2 border-amber-200 rounded-2xl p-4 text-amber-800 text-sm font-medium mb-4">
+      🔒 <span data-i18n="schemes_guest_msg">योजना फिल्टर करण्यासाठी नोंदणी करा (वय व लिंगानुसार)</span>
+    </div>
+    {% else %}
+    <div class="bg-green-50 border border-green-100 rounded-2xl px-4 py-3 text-sm text-gray-700 mb-2">
+      👤 <span data-i18n="schemes_profile">तुमची माहिती:</span>
+      <span class="font-medium text-green-800" id="schemes-profile-text"></span>
+    </div>
+    {% endif %}
+    <div id="schemes-list" class="space-y-3">
+      <div class="skeleton h-24 rounded-2xl"></div>
+      <div class="skeleton h-24 rounded-2xl"></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     VIEW: ACCOUNT  (profile, language, privacy, logout)
+══════════════════════════════════════════════════════════ -->
+<div id="view-account" class="view">
+  <div class="page-header">
+    <div>
+      <h2 class="brand text-xl font-extrabold" data-i18n="account_title">माझे खाते</h2>
+      <p class="text-green-200 text-xs" data-i18n="account_sub">प्रोफाइल व सेटिंग्ज</p>
+    </div>
+  </div>
+
+  <div class="max-w-2xl mx-auto px-4 py-5 space-y-4">
+
+    <!-- Profile card -->
+    <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex items-center gap-4">
+      <div class="w-16 h-16 rounded-full bg-yellow-400 flex items-center justify-center font-bold text-2xl text-gray-900 flex-shrink-0">
+        {{ user.name[0] | upper }}
+      </div>
+      <div class="min-w-0">
+        <p class="font-bold text-gray-900 text-lg truncate">{{ user.name }}</p>
+        <p class="text-gray-500 text-sm">📱 {{ user.phone }}</p>
+        {% if user.age %}<p class="text-gray-400 text-xs mt-0.5">{{ user.age }} वर्षे · {{ user.gender }}</p>{% endif %}
+      </div>
+    </div>
+
+    <!-- Language setting -->
+    <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+      <p class="text-sm font-semibold text-gray-700 mb-2" data-i18n="account_lang">भाषा निवडा</p>
+      <div class="grid grid-cols-3 gap-2">
+        <button onclick="setLang('mr')" class="lang-pill border-2 rounded-xl py-2.5 text-sm font-semibold transition" data-lang-pill="mr">🇮🇳 मराठी</button>
+        <button onclick="setLang('hi')" class="lang-pill border-2 rounded-xl py-2.5 text-sm font-semibold transition" data-lang-pill="hi">🇮🇳 हिंदी</button>
+        <button onclick="setLang('en')" class="lang-pill border-2 rounded-xl py-2.5 text-sm font-semibold transition" data-lang-pill="en">🇬🇧 English</button>
+      </div>
+    </div>
+
+    <!-- Account actions -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y divide-gray-100 overflow-hidden">
+      <a href="#" onclick="alert(currentLang==='mr'?'गोपनीयता धोरण लवकरच उपलब्ध होईल.':currentLang==='hi'?'गोपनीयता नीति जल्द उपलब्ध होगी.':'Privacy policy coming soon.');return false;"
+         class="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition">
+        <span class="flex items-center gap-3 text-gray-700 text-sm font-medium">
+          <span class="text-xl">🔒</span> <span data-i18n="account_privacy">गोपनीयता धोरण</span>
+        </span>
+        <span class="text-gray-300">→</span>
+      </a>
+      <a href="#" onclick="alert(currentLang==='mr'?'सेवा नियम लवकरच उपलब्ध होतील.':currentLang==='hi'?'सेवा शर्तें जल्द उपलब्ध होंगी.':'Terms of service coming soon.');return false;"
+         class="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition">
+        <span class="flex items-center gap-3 text-gray-700 text-sm font-medium">
+          <span class="text-xl">📄</span> <span data-i18n="account_terms">सेवा नियम</span>
+        </span>
+        <span class="text-gray-300">→</span>
+      </a>
+      <a href="#" onclick="alert(currentLang==='mr'?'मदत व संपर्क: kisanlens.support@gmail.com':currentLang==='hi'?'सहायता: kisanlens.support@gmail.com':'Support: kisanlens.support@gmail.com');return false;"
+         class="flex items-center justify-between px-5 py-4 hover:bg-gray-50 transition">
+        <span class="flex items-center gap-3 text-gray-700 text-sm font-medium">
+          <span class="text-xl">💬</span> <span data-i18n="account_help">मदत व संपर्क</span>
+        </span>
+        <span class="text-gray-300">→</span>
+      </a>
+    </div>
+
+    <!-- Logout -->
+    <a href="/logout" class="block w-full bg-red-50 hover:bg-red-100 border-2 border-red-200 text-red-600 font-bold text-center rounded-2xl py-3.5 transition">
+      🚪 <span data-i18n="account_logout">लॉगआउट करा</span>
+    </a>
+
+    <p class="text-center text-gray-300 text-xs pt-2">KisanLens v1.0</p>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     GUEST MODAL
+══════════════════════════════════════════════════════════ -->
+{% if is_guest %}
+<div id="gm-overlay" onclick="closeModal(event)" role="dialog" aria-modal="true">
+  <div id="gm-box">
+    <div class="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center text-4xl mx-auto mb-4">🔒</div>
+    <h2 class="brand text-2xl font-extrabold text-gray-900 mb-2" data-i18n="modal_title">AI विश्लेषण अनलॉक करा!</h2>
+    <p class="text-gray-600 text-sm leading-relaxed mb-1" data-i18n="modal_body">
+      पीकाचे AI निदान वापरण्यासाठी कृपया <strong>नोंदणी</strong> करा किंवा <strong>लॉगिन</strong> करा.
+    </p>
+    <p class="text-gray-400 text-xs mb-5" data-i18n="modal_sub">मोफत · फक्त फोन नंबर · ३० सेकंद</p>
+    <div class="flex flex-col gap-3">
+      <a href="/signup" class="block w-full bg-green-600 hover:bg-green-700 text-white font-bold text-base rounded-2xl py-3.5 text-center transition shadow-md">
+        ✨ <span data-i18n="modal_signup">मोफत नोंदणी करा</span>
+      </a>
+      <a href="/login" class="block w-full bg-white border-2 border-gray-200 hover:bg-gray-50 text-gray-700 font-semibold text-base rounded-2xl py-3.5 text-center transition">
+        <span data-i18n="modal_login">आधीच नोंदणी केली? लॉगिन करा</span>
+      </a>
+    </div>
+    <button onclick="closeModal()" class="mt-4 text-xs text-gray-400 hover:text-gray-600 underline" data-i18n="modal_dismiss">
+      पाहुणे म्हणून पुढे जा
+    </button>
+  </div>
+</div>
+{% endif %}
+
+
+<!-- ══════════════════════════════════════════════════════════
+     BOTTOM NAVIGATION — Home & Account only
+     Padding-bottom uses env(safe-area-inset-bottom) so the bar sits
+     correctly above Android's gesture navigation strip / iOS home
+     indicator instead of being covered by it.
+══════════════════════════════════════════════════════════ -->
+<nav id="botnav2">
+  <button class="bn2-btn active" id="bn2-home" onclick="goHome()">
+    <span class="bn2-icon">🏠</span>
+    <span data-i18n="nav_home">होम</span>
+  </button>
+  <button class="bn2-btn" id="bn2-account" onclick="openView('account')">
+    <span class="bn2-icon">👤</span>
+    <span data-i18n="nav_account">खाते</span>
+  </button>
+</nav>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     JAVASCRIPT
+══════════════════════════════════════════════════════════ -->
+<script>
+// ── i18n dictionary ────────────────────────────────────────────────────────
+// NOTE: user.name is rendered via Jinja's |tojson filter (not raw interpolation)
+// so that any quotes, backslashes, or special characters in a farmer's name
+// can never break out of this JS string literal or inject script.
+const GUEST_OR_USER_NAME = {{ user.name | tojson }};
+const LANG_DICT = {
+  mr: {
+    welcome_sub:"नमस्कार 🙏", welcome_guest: GUEST_OR_USER_NAME + " 👋", welcome_desc:"आजचे शेत कसे आहे?",
+    feat_try:"वापरा",
+    feat_cd_title:"पीक डॉक्टर", feat_cd_desc:"फोटो काढा — AI रोग ओळखेल व उपाय सांगेल",
+    feat_ls_title:"लेबल स्कॅनर", feat_ls_desc:"रासायनिक लेबल स्कॅन करा — स्वस्त पर्याय जाणून घ्या",
+    feat_rm_title:"पीक आराखडा", feat_rm_desc:"पीक निवडा — संपूर्ण वेळापत्रक मिळवा",
+    feat_mp_title:"बाजार भाव", feat_mp_desc:"आजचे घाऊक बाजारभाव एका नजरेत",
+    feat_gs_title:"शासकीय योजना", feat_gs_desc:"तुमच्यासाठी पात्र योजना शोधा",
+    cd_upload_title:"पीकाचा फोटो काढा किंवा अपलोड करा", cd_upload_sub:"JPG, PNG, WEBP — कोणताही फॉर्मॅट चालेल",
+    cd_acres_label:"📐 तुमची जमीन किती एकर आहे?", acres:"एकर", cd_acres_hint:"तुमच्या शेताचा आकार टाइप करा",
+    cd_btn:"🩺 पीकाचे निदान करा", cd_btn_guest:"🔒 AI निदान अनलॉक करा",
+    cd_tab_chem:"💊 रासायनिक उपाय", cd_tab_org:"🌿 घरगुती उपाय",
+    remedies_title:"पारंपरिक घरगुती उपाय", remedies_empty_msg:"पीकाचे निदान केल्यावर इथे त्या रोगासाठी खास घरगुती उपाय दिसतील",
+    ls_upload_title:"रासायनिक कंटेनरचा फोटो काढा", ls_upload_sub:"घटकांची यादी असलेली बाजू फोकसमध्ये ठेवा",
+    ls_btn:"🔍 लेबल तपासा", ls_tab_info:"🏷️ रासायनिक माहिती", ls_tab_gen:"💰 स्वस्त पर्याय", ls_tab_org:"🌿 घरगुती पर्याय",
+    rm_select_crop:"तुमचे पीक निवडा:", rm_date_label:"📆 पेरणीची तारीख:", rm_btn:"🗓️ आराखडा तयार करा",
+    crop_cotton:"कापूस", crop_soybean:"सोयाबीन", crop_gram:"हरभरा", crop_wheat:"गहू", crop_tur:"तूर",
+    mandi_sub:"आजचे घाऊक बाजारभाव", schemes_sub:"तुमच्यासाठी पात्र योजना",
+    schemes_guest_msg:"योजना फिल्टर करण्यासाठी नोंदणी करा",
+    schemes_profile:"तुमची माहिती:",
+    modal_title:"AI विश्लेषण अनलॉक करा!", modal_body:"पीकाचे AI निदान वापरण्यासाठी कृपया नोंदणी करा किंवा लॉगिन करा.",
+    modal_sub:"मोफत · फक्त फोन नंबर · ३० सेकंद", modal_signup:"मोफत नोंदणी करा",
+    modal_login:"आधीच नोंदणी केली? लॉगिन करा", modal_dismiss:"पाहुणे म्हणून पुढे जा",
+    nav_home:"होम", nav_cd:"डॉक्टर", nav_rm:"आराखडा", nav_mp:"भाव", nav_profile:"प्रोफाइल", nav_account:"खाते",
+    footer_disclaimer:"KisanLens शेतकऱ्यांना AI-आधारित कृषी सहाय्य पुरवते. महत्त्वाचे निर्णय घेण्यापूर्वी कृपया स्थानिक कृषी तज्ञांचा सल्ला घ्या.",
+    footer_agree:"ही वेबसाईट वापरून, तुम्ही आमच्या सेवा नियम आणि गोपनीयता धोरणाशी सहमत आहात.",
+    footer_home:"होम", footer_about:"आमच्याबद्दल", footer_contact:"संपर्क करा",
+    footer_privacy:"गोपनीयता धोरण", footer_terms:"सेवा नियम", footer_cookie:"कुकी धोरण",
+    footer_copyright:"© 2026 KisanLens. सर्व हक्क राखीव.",
+    account_title:"माझे खाते", account_sub:"प्रोफाइल व सेटिंग्ज", account_lang:"भाषा निवडा",
+    account_privacy:"गोपनीयता धोरण", account_terms:"सेवा नियम", account_help:"मदत व संपर्क", account_logout:"लॉगआउट करा",
+  },
+  hi: {
+    welcome_sub:"नमस्कार 🙏", welcome_guest: GUEST_OR_USER_NAME + " 👋", welcome_desc:"आज खेत कैसा है?",
+    feat_try:"उपयोग करें",
+    feat_cd_title:"फसल डॉक्टर", feat_cd_desc:"फ़ोटो लें — AI रोग पहचानेगा और उपाय बताएगा",
+    feat_ls_title:"लेबल स्कैनर", feat_ls_desc:"रासायनिक लेबल स्कैन करें — सस्ता विकल्प जानें",
+    feat_rm_title:"फसल रोडमैप", feat_rm_desc:"फसल चुनें — पूरा शेड्यूल पाएं",
+    feat_mp_title:"मंडी भाव", feat_mp_desc:"आज के थोक बाजार भाव",
+    feat_gs_title:"सरकारी योजनाएं", feat_gs_desc:"आपके लिए पात्र योजनाएं खोजें",
+    cd_upload_title:"फसल का फ़ोटो लें या अपलोड करें", cd_upload_sub:"JPG, PNG, WEBP — कोई भी फॉर्मेट चलेगा",
+    cd_acres_label:"📐 आपकी जमीन कितने एकड़ है?", acres:"एकड़", cd_acres_hint:"अपने खेत का आकार टाइप करें",
+    cd_btn:"🩺 फसल का निदान करें", cd_btn_guest:"🔒 AI निदान अनलॉक करें",
+    cd_tab_chem:"💊 रासायनिक उपाय", cd_tab_org:"🌿 घरेलू उपाय",
+    remedies_title:"पारंपरिक घरेलू उपाय", remedies_empty_msg:"फसल का निदान करने के बाद यहाँ उस रोग के लिए खास घरेलू उपाय दिखेंगे",
+    ls_upload_title:"रासायनिक कंटेनर का फ़ोटो लें", ls_upload_sub:"सामग्री सूची वाला हिस्सा फोकस में रखें",
+    ls_btn:"🔍 लेबल जांचें", ls_tab_info:"🏷️ रासायनिक जानकारी", ls_tab_gen:"💰 सस्ते विकल्प", ls_tab_org:"🌿 घरेलू विकल्प",
+    rm_select_crop:"अपनी फसल चुनें:", rm_date_label:"📆 बुआई की तारीख:", rm_btn:"🗓️ रोडमैप बनाएं",
+    crop_cotton:"कपास", crop_soybean:"सोयाबीन", crop_gram:"चना", crop_wheat:"गेहूं", crop_tur:"तुअर दाल",
+    mandi_sub:"आज के थोक बाजार भाव", schemes_sub:"आपके लिए पात्र योजनाएं",
+    schemes_guest_msg:"योजनाएं फ़िल्टर करने के लिए पंजीकरण करें",
+    schemes_profile:"आपकी जानकारी:",
+    modal_title:"AI विश्लेषण अनलॉक करें!", modal_body:"फसल AI निदान के लिए कृपया पंजीकरण करें या लॉगिन करें.",
+    modal_sub:"मुफ़्त · सिर्फ फोन नंबर · 30 सेकंड", modal_signup:"मुफ़्त पंजीकरण करें",
+    modal_login:"पहले से पंजीकृत? लॉगिन करें", modal_dismiss:"अतिथि के रूप में जारी रखें",
+    nav_home:"होम", nav_cd:"डॉक्टर", nav_rm:"रोडमैप", nav_mp:"भाव", nav_profile:"प्रोफाइल", nav_account:"खाता",
+    footer_disclaimer:"KisanLens किसानों को AI-आधारित कृषि सहायता प्रदान करता है. महत्वपूर्ण निर्णय लेने से पहले स्थानीय कृषि विशेषज्ञों से परामर्श लें.",
+    footer_agree:"इस वेबसाइट का उपयोग करके, आप हमारी सेवा शर्तों और गोपनीयता नीति से सहमत हैं।",
+    footer_home:"होम", footer_about:"हमारे बारे में", footer_contact:"संपर्क करें",
+    footer_privacy:"गोपनीयता नीति", footer_terms:"सेवा शर्तें", footer_cookie:"कुकी नीति",
+    footer_copyright:"© 2026 KisanLens. सर्वाधिकार सुरक्षित.",
+    account_title:"मेरा खाता", account_sub:"प्रोफाइल और सेटिंग्स", account_lang:"भाषा चुनें",
+    account_privacy:"गोपनीयता नीति", account_terms:"सेवा शर्तें", account_help:"सहायता और संपर्क", account_logout:"लॉगआउट करें",
+  },
+  en: {
+    welcome_sub:"Hello 🙏", welcome_guest: GUEST_OR_USER_NAME + " 👋", welcome_desc:"How is your farm today?",
+    feat_try:"Use",
+    feat_cd_title:"Crop Doctor", feat_cd_desc:"Take a photo — AI will detect disease & give treatment",
+    feat_ls_title:"Label Scanner", feat_ls_desc:"Scan chemical labels — find cheaper alternatives",
+    feat_rm_title:"Crop Roadmap", feat_rm_desc:"Select crop — get full farming schedule",
+    feat_mp_title:"Mandi Prices", feat_mp_desc:"Today's wholesale market prices at a glance",
+    feat_gs_title:"Govt Schemes", feat_gs_desc:"Find schemes you are eligible for",
+    cd_upload_title:"Take or upload a crop photo", cd_upload_sub:"JPG, PNG, WEBP — any format works",
+    cd_acres_label:"📐 How many acres is your field?", acres:"Acres", cd_acres_hint:"Type the size of your field",
+    cd_btn:"🩺 Diagnose My Crop", cd_btn_guest:"🔒 Unlock AI Diagnosis",
+    cd_tab_chem:"💊 Chemical Treatment", cd_tab_org:"🌿 Homemade Remedy",
+    remedies_title:"Traditional Homemade Remedies", remedies_empty_msg:"After you diagnose your crop, disease-specific homemade remedies will appear here",
+    ls_upload_title:"Take a photo of the chemical container", ls_upload_sub:"Focus on the ingredient list side",
+    ls_btn:"🔍 Scan Label", ls_tab_info:"🏷️ Chemical Info", ls_tab_gen:"💰 Generic Alternatives", ls_tab_org:"🌿 Homemade Alternatives",
+    rm_select_crop:"Select your crop:", rm_date_label:"📆 Planting Date:", rm_btn:"🗓️ Build My Schedule",
+    crop_cotton:"Cotton", crop_soybean:"Soybean", crop_gram:"Gram", crop_wheat:"Wheat", crop_tur:"Tur Dal",
+    mandi_sub:"Today's wholesale market prices", schemes_sub:"Schemes you qualify for",
+    schemes_guest_msg:"Register to filter schemes by age and gender",
+    schemes_profile:"Your Profile:",
+    modal_title:"Unlock AI Analysis!", modal_body:"Please register or login with your phone number to use crop AI diagnostics.",
+    modal_sub:"Free · Phone number only · 30 seconds", modal_signup:"Sign Up Free",
+    modal_login:"Already registered? Login", modal_dismiss:"Continue as guest",
+    nav_home:"Home", nav_cd:"Doctor", nav_rm:"Roadmap", nav_mp:"Prices", nav_profile:"Profile", nav_account:"Account",
+    footer_disclaimer:"KisanLens provides AI-based agricultural assistance. While we strive for accuracy, consult local agricultural experts before making critical farming decisions.",
+    footer_agree:"By using this website, you agree to our Terms of Service and Privacy Policy.",
+    footer_home:"Home", footer_about:"About Us", footer_contact:"Contact Us",
+    footer_privacy:"Privacy Policy", footer_terms:"Terms & Conditions", footer_cookie:"Cookie Policy",
+    footer_copyright:"© 2026 KisanLens. All Rights Reserved.",
+    account_title:"My Account", account_sub:"Profile & Settings", account_lang:"Choose Language",
+    account_privacy:"Privacy Policy", account_terms:"Terms of Service", account_help:"Help & Support", account_logout:"Log Out",
+  }
+};
+
+// ── State ──────────────────────────────────────────────────────────────────
+const IS_GUEST = {{ 'true' if is_guest else 'false' }};
+let currentLang = 'mr';
+let currentView = 'home';
+let fullResult   = '';   // complete AI result text for tab-splitting
+let lsFullResult = '';
+let mandiData    = [];
+let mandiLoaded  = false;
+let schemesLoaded = false;
+let selectedCrop = '';
+
+// ── Language ───────────────────────────────────────────────────────────────
+function setLang(lang) {
+  currentLang = lang;
+  const d = LANG_DICT[lang];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (d[key] !== undefined) el.textContent = d[key];
+  });
+  // Highlight the matching language pill in the Account view
+  document.querySelectorAll('.lang-pill').forEach(p => {
+    p.classList.toggle('active', p.getAttribute('data-lang-pill') === lang);
+  });
+}
+
+// ── Views ──────────────────────────────────────────────────────────────────
+function openView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  currentView = name;
+  window.scrollTo({top:0, behavior:'smooth'});
+  if (name === 'mandi' && !mandiLoaded) loadMandi();
+  if (name === 'schemes' && !schemesLoaded) loadSchemes();
+
+  // ── Bottom nav active-state: only Home and Account are real bottom-nav
+  // destinations. Every other view (crop-doctor, label-scanner, roadmap,
+  // mandi, schemes) is reached FROM Home via its feature card, so while
+  // any of those is open, the Home tab stays visually active underneath.
+  const homeBtn    = document.getElementById('bn2-home');
+  const accountBtn = document.getElementById('bn2-account');
+  if (homeBtn && accountBtn) {
+    const isAccount = (name === 'account');
+    homeBtn.classList.toggle('active', !isAccount);
+    accountBtn.classList.toggle('active', isAccount);
+  }
+}
+
+function goHome() {
+  openView('home');
+}
+
+// ── Image preview ──────────────────────────────────────────────────────────
+function previewImg(inputId, imgId, wrapId) {
+  const input = document.getElementById(inputId);
+  const img   = document.getElementById(imgId);
+  const wrap  = document.getElementById(wrapId);
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = e => { img.src = e.target.result; wrap.classList.remove('hidden'); };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+
+// ── Drag-drop ──────────────────────────────────────────────────────────────
+['cd-zone','ls-zone'].forEach(id => {
+  const zone = document.getElementById(id);
+  if (!zone) return;
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('drag-over');
+    const inp = id === 'cd-zone' ? 'cd-input' : 'ls-input';
+    const inputEl = document.getElementById(inp);
+    if (!inputEl) return;
+    const dt = new DataTransfer();
+    dt.items.add(e.dataTransfer.files[0]);
+    inputEl.files = dt.files;
+    const pid = id === 'cd-zone' ? 'cd-preview' : 'ls-preview';
+    const wid = id === 'cd-zone' ? 'cd-preview-wrap' : 'ls-preview-wrap';
+    previewImg(inp, pid, wid);
+  });
+});
+
+// ── Guest modal ────────────────────────────────────────────────────────────
+function showGuestModal() {
+  const o = document.getElementById('gm-overlay');
+  if (o) { o.classList.add('open'); document.body.style.overflow = 'hidden'; }
+}
+function closeModal(event) {
+  if (event && event.target !== document.getElementById('gm-overlay')) return;
+  const o = document.getElementById('gm-overlay');
+  if (o) { o.classList.remove('open'); document.body.style.overflow = ''; }
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+/** Footer link handler — shows a trilingual informational alert until real pages exist. */
+function footerAlert(type) {
+  const msgs = {
+    about: {
+      mr: 'KisanLens बद्दल\n\nKisanLens ही महाराष्ट्रातील शेतकऱ्यांसाठी तयार केलेली AI-आधारित कृषी सहाय्य अ‍ॅप आहे. पीक रोग निदान, लेबल स्कॅनर, पीक आराखडा, बाजार भाव आणि शासकीय योजनांची माहिती एकाच ठिकाणी मिळते.',
+      hi:  'KisanLens के बारे में\n\nKisanLens महाराष्ट्र के किसानों के लिए बनाया गया एक AI-आधारित कृषि सहायता ऐप है। फसल रोग निदान, लेबल स्कैनर, फसल रोडमैप, मंडी भाव और सरकारी योजनाएं — सब एक जगह।',
+      en:  'About KisanLens\n\nKisanLens is an AI-powered agricultural assistance app built for farmers in Maharashtra. Crop disease detection, label scanner, crop roadmap, mandi prices, and government schemes — all in one place.',
+    },
+    contact: {
+      mr: 'संपर्क करा\n\nईमेल: kisanlens.support@gmail.com\n\nआम्ही 24 तासांत उत्तर देतो.',
+      hi:  'संपर्क करें\n\nईमेल: kisanlens.support@gmail.com\n\nहम 24 घंटे में जवाब देते हैं।',
+      en:  'Contact Us\n\nEmail: kisanlens.support@gmail.com\n\nWe respond within 24 hours.',
+    },
+    privacy: {
+      mr: 'गोपनीयता धोरण\n\nआम्ही तुमचा फोन नंबर, वय, व लिंग फक्त अ‍ॅप सेवा देण्यासाठी वापरतो. तुमचा कोणताही डेटा तृतीय पक्षाला विकला जात नाही. पीकाचे फोटो AI तपासणीनंतर आमच्या सर्व्हरवर साठवले जात नाहीत.',
+      hi:  'गोपनीयता नीति\n\nहम आपका फोन नंबर, उम्र और लिंग केवल ऐप सेवाएं प्रदान करने के लिए उपयोग करते हैं। आपका कोई भी डेटा तीसरे पक्ष को नहीं बेचा जाता। फसल फ़ोटो AI जांच के बाद हमारे सर्वर पर संग्रहीत नहीं किए जाते।',
+      en:  'Privacy Policy\n\nWe use your phone number, age, and gender only to provide app services. Your data is never sold to third parties. Crop photos are not stored on our servers after AI analysis.',
+    },
+    terms: {
+      mr: 'सेवा नियम\n\nKisanLens फक्त माहिती व सहाय्यासाठी आहे. AI शिफारसी अंतिम नाहीत — महत्त्वाचे निर्णय घेण्यापूर्वी कृषी तज्ञांचा सल्ला घ्या. अ‍ॅप वापरून तुम्ही या अटींशी सहमत होता.',
+      hi:  'सेवा शर्तें\n\nKisanLens केवल जानकारी और सहायता के लिए है। AI सिफारिशें अंतिम नहीं हैं — महत्वपूर्ण निर्णय लेने से पहले कृषि विशेषज्ञों से परामर्श लें। ऐप का उपयोग करके आप इन शर्तों से सहमत होते हैं।',
+      en:  'Terms of Service\n\nKisanLens is for informational and assistance purposes only. AI recommendations are not final — consult agricultural experts before making critical farming decisions. By using the app you agree to these terms.',
+    },
+    cookie: {
+      mr: 'कुकी धोरण\n\nKisanLens लॉगिन सेशन व प्राधान्ये जतन करण्यासाठी आवश्यक कुकीज वापरते. ट्रॅकिंग किंवा जाहिरात कुकीज वापरल्या जात नाहीत.',
+      hi:  'कुकी नीति\n\nKisanLens लॉगिन सेशन और प्राथमिकताएं सहेजने के लिए आवश्यक कुकीज़ उपयोग करता है। ट्रैकिंग या विज्ञापन कुकीज़ का उपयोग नहीं किया जाता।',
+      en:  'Cookie Policy\n\nKisanLens uses essential cookies to maintain login sessions and preferences. No tracking or advertising cookies are used.',
+    },
+  };
+  const lang = currentLang in msgs[type] ? currentLang : 'en';
+  alert(msgs[type][lang]);
+}
+
+async function checkAuth(resp) {
+  if (resp.status === 401) {
+    try { const d = await resp.clone().json(); if (d.auth_required) { showGuestModal(); return true; } } catch (_) {}
+  }
+  return false;
+}
+
+// ── Shared AI Response Formatter ────────────────────────────────────────────
+// Converts the AI's plain-text "SECTION N — icon Title" + "• bullet" output
+// into clean, card-based HTML with proper headings, spacing, and highlighted
+// key data. Used by both Crop Doctor and Label Scanner so the two features
+// look and feel consistent. Falls back gracefully to plain text if the AI's
+// response doesn't follow the expected SECTION/• format for any reason.
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+/**
+ * Render one bullet line as HTML.
+ * Detects "Label: value" patterns (very common in our prompts, e.g.
+ * "प्रति एकर मात्रा: 30 मिली") and bolds the label for scanability.
+ * Also wraps standalone numeric/quantity tokens in a highlight chip
+ * so totals and dosages visually pop out from the surrounding text.
+ */
+function renderBulletLine(line) {
+  let text = line.replace(/^[•\-\*]\s*/, '').trim();
+  if (!text) return '';
+
+  // "Label (English): value" or "Label: value" → bold the label part
+  const colonMatch = text.match(/^([^:：]{2,60}[:：])\s*(.+)$/);
+  let html;
+  if (colonMatch) {
+    const label = escapeHtml(colonMatch[1]);
+    let value   = escapeHtml(colonMatch[2]);
+    // Highlight numbers followed by units (ml, gram, ग्रॅम, मिली, लीटर, liter, ₹, %, टाक्या, tank)
+    value = value.replace(
+      /(\d+(?:\.\d+)?\s*(?:ml|मिली|मिलि|gram|ग्रॅम|liter|लीटर|लि\.?|₹|%|टाक्या|tank[s]?|kg|किलो))/gi,
+      '<span class="ai-highlight">$1</span>'
+    );
+    html = `<b class="ai-key">${label}</b> ${value}`;
+  } else {
+    html = escapeHtml(text).replace(
+      /(\d+(?:\.\d+)?\s*(?:ml|मिली|मिलि|gram|ग्रॅम|liter|लीटर|लि\.?|₹|%|टाक्या|tank[s]?|kg|किलो))/gi,
+      '<span class="ai-highlight">$1</span>'
+    );
+  }
+  return `<div class="ai-bullet"><span class="ai-dot"></span><span>${html}</span></div>`;
+}
+
+/**
+ * Split AI text into sections using the "SECTION N — icon Title" markers
+ * our prompts always produce, then render each section as a styled card.
+ * extraClassForSection(sectionTitle) lets callers tint specific sections
+ * (e.g. red for warnings, green for homemade remedies).
+ */
+function formatAIResponse(rawText, extraClassFn) {
+  if (!rawText || !rawText.trim()) return '';
+
+  const sectionRegex = /SECTION\s*\d+\s*[—\-]\s*([^\n]+)/g;
+  const matches = [...rawText.matchAll(sectionRegex)];
+
+  // Fallback: no recognizable SECTION markers — render as a single plain card
+  if (matches.length === 0) {
+    const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
+    const bullets = lines.map(renderBulletLine).join('');
+    return `<div class="ai-response"><div class="ai-section"><div>${bullets || escapeHtml(rawText)}</div></div></div>`;
+  }
+
+  let html = '<div class="ai-response">';
+  for (let i = 0; i < matches.length; i++) {
+    const headingRaw = matches[i][1].trim();
+    const startIdx    = matches[i].index + matches[i][0].length;
+    const endIdx       = (i + 1 < matches.length) ? matches[i + 1].index : rawText.length;
+    const body          = rawText.substring(startIdx, endIdx).trim();
+
+    // Pull the leading emoji off the heading text, if present, to show in the icon slot
+    const emojiMatch = headingRaw.match(/^([\p{Emoji_Presentation}\u2600-\u27BF\uFE0F]+)\s*/u);
+    const icon    = emojiMatch ? emojiMatch[1] : '📌';
+    const titleText = emojiMatch ? headingRaw.slice(emojiMatch[0].length).trim() : headingRaw;
+
+    const bodyLines = body.split('\n').map(l => l.trim()).filter(Boolean);
+    const bulletsHtml = bodyLines
+      .filter(l => l.startsWith('•') || l.startsWith('-') || l.startsWith('*'))
+      .map(renderBulletLine).join('');
+    const nonBulletLines = bodyLines.filter(l => !(l.startsWith('•') || l.startsWith('-') || l.startsWith('*')));
+    const introHtml = nonBulletLines.length
+      ? `<p class="text-gray-500 text-xs mb-2">${escapeHtml(nonBulletLines.join(' '))}</p>` : '';
+
+    const extraClass = extraClassFn ? extraClassFn(titleText) : '';
+    html += `
+      <div class="ai-section ${extraClass}">
+        <div class="ai-section-head">
+          <span class="ai-section-icon">${icon}</span>
+          <span>${escapeHtml(titleText)}</span>
+        </div>
+        ${introHtml}
+        ${bulletsHtml || `<p class="text-gray-500 text-xs">${escapeHtml(body)}</p>`}
+      </div>`;
+  }
+  html += '</div>';
+  return html;
+}
+
+/** Section-tint helper shared by Crop Doctor + Label Scanner renderers. */
+function aiSectionTint(titleText) {
+  const t = titleText.toLowerCase();
+  if (t.includes('सुरक्षा') || t.includes('warning') || t.includes('सूचना') || t.includes('safety')) return 'ai-warning-section';
+  if (t.includes('घरगुती') || t.includes('सेंद्रिय') || t.includes('homemade') || t.includes('organic') || t.includes('alternative')) return 'ai-remedy-section';
+  return '';
+}
+
+// ── Crop Doctor ────────────────────────────────────────────────────────────
+let cdFullText = '';
+let cdActiveTab = 'chemical';
+
+async function submitCropDoctor() {
+  if (IS_GUEST) { showGuestModal(); return; }
+  const input = document.getElementById('cd-input');
+  if (!input || !input.files || !input.files[0]) {
+    alert(currentLang === 'mr' ? 'कृपया आधी फोटो निवडा.' :
+          currentLang === 'hi' ? 'कृपया पहले फ़ोटो चुनें.' : 'Please select a photo first.');
+    return;
+  }
+  const btn     = document.getElementById('cd-btn');
+  const loader  = document.getElementById('cd-loader');
+  const resWrap = document.getElementById('cd-result-wrap');
+  const resBox  = document.getElementById('cd-result');
+
+  btn.disabled = true;
+  btn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg> AI काम करत आहे…';
+  loader.classList.remove('hidden');
+  resWrap.classList.add('hidden');
+
+  const fd = new FormData();
+  fd.append('image', input.files[0]);
+  fd.append('lang', currentLang);
+  fd.append('acres', document.getElementById('cd-acres')?.value || '1');
+
+  try {
+    const resp = await fetch('/api/crop-doctor', { method: 'POST', body: fd });
+    if (await checkAuth(resp)) { setBtn('cd'); loader.classList.add('hidden'); return; }
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+
+    cdFullText = data.result;
+    cdActiveTab = 'chemical';
+    document.querySelectorAll('#view-crop-doctor .tab-pill').forEach((p,i) => p.classList.toggle('active', i===0));
+    cdRenderTab();
+    resWrap.classList.remove('hidden');
+  } catch (e) {
+    resBox.innerHTML = `<div class="ai-section ai-warning-section"><div class="ai-section-head"><span class="ai-section-icon">❌</span><span>Error</span></div><p class="text-gray-600 text-sm">${escapeHtml(e.message)}</p></div>`;
+    resWrap.classList.remove('hidden');
+  } finally {
+    setBtn('cd');
+    loader.classList.add('hidden');
+  }
+}
+
+/**
+ * Crop Doctor tab switcher — mirrors Label Scanner's lsTab() exactly so both
+ * features feel consistent. "chemical" shows SECTION 1+2 (diagnosis + chemical
+ * treatment); "organic" shows SECTION 3+4 (homemade remedy + safety notes).
+ * Both render through formatAIResponse() for clean cards instead of raw text.
+ */
+function cdTab(type, el) {
+  cdActiveTab = type;
+  document.querySelectorAll('#view-crop-doctor .tab-pill').forEach(p => p.classList.remove('active'));
+  if (el) el.classList.add('active');
+  cdRenderTab();
+}
+
+function cdRenderTab() {
+  const box = document.getElementById('cd-result');
+  if (!cdFullText) return;
+  const s3 = cdFullText.indexOf('SECTION 3');
+  let slice;
+  if (cdActiveTab === 'chemical') {
+    slice = s3 > -1 ? cdFullText.substring(0, s3) : cdFullText;
+  } else {
+    slice = s3 > -1 ? cdFullText.substring(s3) : cdFullText;
+  }
+  box.innerHTML = formatAIResponse(slice, aiSectionTint);
+}
+
+function setBtn(id) {
+  const btn = document.getElementById(id + '-btn');
+  if (!btn) return;
+  btn.disabled = false;
+  if (id === 'cd') btn.innerHTML = '<span data-i18n="cd_btn">🩺 पीकाचे निदान करा</span>';
+  if (id === 'ls') btn.innerHTML = '<span data-i18n="ls_btn">🔍 लेबल तपासा</span>';
+}
+
+// ── Label Scanner ──────────────────────────────────────────────────────────
+let lsActiveTab = 'info';
+
+async function submitLabelScanner() {
+  const input = document.getElementById('ls-input');
+  if (!input || !input.files || !input.files[0]) {
+    alert(currentLang === 'mr' ? 'कृपया फोटो निवडा.' : 'Please select a photo.');
+    return;
+  }
+  const btn     = document.getElementById('ls-btn');
+  const loader  = document.getElementById('ls-loader');
+  const resWrap = document.getElementById('ls-result-wrap');
+  const resBox  = document.getElementById('ls-result');
+
+  btn.disabled = true;
+  btn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg> वाचत आहे…';
+  loader.classList.remove('hidden');
+  resWrap.classList.add('hidden');
+
+  const fd = new FormData();
+  fd.append('image', input.files[0]);
+  fd.append('lang', currentLang);
+  fd.append('acres', document.getElementById('ls-acres')?.value || '1');
+
+  try {
+    const resp = await fetch('/api/label-scanner', { method: 'POST', body: fd });
+    if (await checkAuth(resp)) { setBtn('ls'); loader.classList.add('hidden'); return; }
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+
+    lsFullResult = data.result;
+    lsActiveTab = 'info';
+    document.querySelectorAll('#view-label-scanner .tab-pill').forEach((p,i) => p.classList.toggle('active', i===0));
+    lsRenderTab();
+    resWrap.classList.remove('hidden');
+  } catch (e) {
+    resBox.innerHTML = `<div class="ai-section ai-warning-section"><div class="ai-section-head"><span class="ai-section-icon">❌</span><span>Error</span></div><p class="text-gray-600 text-sm">${escapeHtml(e.message)}</p></div>`;
+    resWrap.classList.remove('hidden');
+  } finally {
+    setBtn('ls');
+    loader.classList.add('hidden');
+  }
+}
+
+function lsTab(type, el) {
+  lsActiveTab = type;
+  document.querySelectorAll('#view-label-scanner .tab-pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  lsRenderTab();
+}
+
+function lsRenderTab() {
+  const box = document.getElementById('ls-result');
+  if (!lsFullResult) return;
+  const s2 = lsFullResult.indexOf('SECTION 2');
+  const s3 = lsFullResult.indexOf('SECTION 3');
+  const s4 = lsFullResult.indexOf('SECTION 4');
+  let slice;
+  if (lsActiveTab === 'info')    slice = s2 > -1 ? lsFullResult.substring(0, s2) : lsFullResult;
+  if (lsActiveTab === 'generic') slice = s2 > -1 ? lsFullResult.substring(s2, s3 > -1 ? s3 : undefined) : lsFullResult;
+  if (lsActiveTab === 'organic') slice = s3 > -1 ? lsFullResult.substring(s3, s4 > -1 ? s4 : undefined) : lsFullResult;
+  box.innerHTML = formatAIResponse(slice, aiSectionTint);
+}
+
+// ── Crop Roadmap ───────────────────────────────────────────────────────────
+function selectCrop(crop, el) {
+  selectedCrop = crop;
+  document.getElementById('rm-crop').value = crop;
+  document.querySelectorAll('.crop-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+async function submitRoadmap() {
+  const crop = selectedCrop;
+  const date = document.getElementById('rm-date').value;
+  if (!crop || !date) {
+    alert(currentLang === 'mr' ? 'कृपया पीक व तारीख निवडा.' :
+          currentLang === 'hi' ? 'कृपया फसल और तारीख चुनें.' : 'Please select a crop and date.');
+    return;
+  }
+  const resultDiv = document.getElementById('rm-result');
+  resultDiv.innerHTML = '<div class="space-y-2"><div class="skeleton h-10 rounded-2xl"></div><div class="skeleton h-40 rounded-2xl"></div></div>';
+  resultDiv.classList.remove('hidden');
+
+  try {
+    const resp = await fetch('/api/crop-roadmap', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ crop_type: crop, planting_date: date, lang: currentLang })
+    });
+    if (await checkAuth(resp)) { resultDiv.innerHTML = ''; return; }
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+    renderRoadmap(data);
+  } catch (e) {
+    resultDiv.innerHTML = `<p class="text-red-600 font-medium">❌ ${e.message}</p>`;
+  }
+}
+
+// Marathi stage name mapping
+const STAGE_MR = {
+  sow:"🌱 पेरणी", water:"💧 पाणी", fertilizer:"🧪 खत", weed:"🌿 निंदण", inspect:"🔍 तपासणी", harvest:"🌾 काढणी"
+};
+const STAGE_HI = {
+  sow:"🌱 बुआई", water:"💧 सिंचाई", fertilizer:"🧪 खाद", weed:"🌿 निराई", inspect:"🔍 जांच", harvest:"🌾 कटाई"
+};
+const STAGE_EN = {
+  sow:"🌱 Sow", water:"💧 Water", fertilizer:"🧪 Fertilize", weed:"🌿 Weed", inspect:"🔍 Inspect", harvest:"🌾 Harvest"
+};
+
+function stageLabel(type) {
+  const map = currentLang === 'mr' ? STAGE_MR : currentLang === 'hi' ? STAGE_HI : STAGE_EN;
+  return map[type] || type;
+}
+
+function renderRoadmap(data) {
+  const div = document.getElementById('rm-result');
+  const dotColor = { done:'#15803d', current:'#f59e0b', upcoming:'#d1d5db' };
+
+  const statsLabel = currentLang === 'mr' ? ['दिवस जुने','पूर्ण','बाकी'] :
+                     currentLang === 'hi' ? ['दिन पुरानी','पूर्ण','बाकी'] : ['Days Old','Done','Remaining'];
+
+  const cropEmoji = { cotton:'🌸', soybean:'🌿', gram:'🟤', wheat:'🌾', turdal:'🫘' };
+  const cropNameKey = { cotton:'crop_cotton', soybean:'crop_soybean', gram:'crop_gram', wheat:'crop_wheat', turdal:'crop_tur' };
+  const cropDisplayName = LANG_DICT[currentLang][cropNameKey[data.crop_type]] || data.crop_type;
+
+  const milestoneHTML = data.milestones.map((m, i) => {
+    const isLast = i === data.milestones.length - 1;
+    const nowBadge = m.status === 'current' ?
+      `<span class="text-xs bg-amber-100 text-amber-700 font-bold px-2 py-0.5 rounded-full animate-pulse ml-1">${currentLang==='mr'?'आत्ता':currentLang==='hi'?'अभी':'NOW'}</span>` : '';
+    const doneBadge = m.status === 'done' ?
+      `<span class="text-xs text-green-600 font-bold ml-1">✓</span>` : '';
+    const daysLeft = m.days_left ?
+      `<span class="text-xs text-blue-600 ml-1">${currentLang==='mr'?'मध्ये':'in'} ${m.days_left} ${currentLang==='mr'?'दिवसांनी':currentLang==='hi'?'दिनों में':'days'}</span>` : '';
+    const rowBg = m.status === 'current' ? 'bg-amber-50/60 rounded-xl -mx-2 px-2' : '';
+
+    return `
+    <div class="flex gap-3 ${rowBg}">
+      <div class="flex flex-col items-center">
+        <div class="w-4 h-4 rounded-full flex-shrink-0 mt-1.5 border-2 border-white" style="background:${dotColor[m.status]};${m.status==='current'?'box-shadow:0 0 0 4px rgba(245,158,11,.25)':'box-shadow:0 0 0 1px #e5e7eb'}"></div>
+        ${!isLast ? '<div class="w-0.5 flex-1 bg-gray-200 my-1"></div>' : ''}
+      </div>
+      <div class="pb-4 pt-1 flex-1">
+        <div class="flex flex-wrap items-center gap-1.5">
+          <span class="text-xs font-bold bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">${stageLabel(m.type)}</span>
+          <span class="text-sm font-semibold text-gray-800">${m.event}</span>
+          ${nowBadge}${doneBadge}${daysLeft}
+        </div>
+        <p class="text-xs text-gray-400 mt-0.5">${currentLang==='mr'?'दिवस':currentLang==='hi'?'दिन':'Day'} ${m.day}</p>
+      </div>
+    </div>`;
+  }).join('');
+
+  div.innerHTML = `
+    <!-- Crop summary header -->
+    <div class="flex items-center gap-3 bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4">
+      <div class="w-12 h-12 rounded-xl bg-green-50 flex items-center justify-center text-2xl flex-shrink-0">${cropEmoji[data.crop_type] || '🌾'}</div>
+      <div>
+        <p class="font-bold text-gray-900 text-base">${cropDisplayName}</p>
+        <p class="text-gray-400 text-xs">${new Date(data.planting_date).toLocaleDateString(currentLang==='en'?'en-IN':'mr-IN',{day:'numeric',month:'short',year:'numeric'})}</p>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-3 gap-3 mb-5">
+      <div class="bg-white border border-green-100 rounded-2xl p-3.5 text-center shadow-sm">
+        <p class="text-2xl font-extrabold text-green-700 brand">${data.crop_age_days}</p>
+        <p class="text-xs text-green-600 font-semibold mt-0.5">${statsLabel[0]}</p>
+      </div>
+      <div class="bg-white border border-blue-100 rounded-2xl p-3.5 text-center shadow-sm">
+        <p class="text-2xl font-extrabold text-blue-700 brand">${data.milestones.filter(m=>m.status==='done').length}</p>
+        <p class="text-xs text-blue-600 font-semibold mt-0.5">${statsLabel[1]}</p>
+      </div>
+      <div class="bg-white border border-amber-100 rounded-2xl p-3.5 text-center shadow-sm">
+        <p class="text-2xl font-extrabold text-amber-700 brand">${data.milestones.filter(m=>m.status==='upcoming').length}</p>
+        <p class="text-xs text-amber-600 font-semibold mt-0.5">${statsLabel[2]}</p>
+      </div>
+    </div>
+
+    ${data.ai_tip ? `
+    <div class="bg-gradient-to-r from-blue-50 to-sky-50 border border-blue-200 rounded-2xl p-4 mb-5 flex gap-3 items-start">
+      <span class="text-2xl flex-shrink-0">💡</span>
+      <p class="text-sm text-blue-900 leading-relaxed">${data.ai_tip}</p>
+    </div>` : ''}
+
+    <!-- Timeline card -->
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+      <p class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">${currentLang==='mr'?'वेळापत्रक':currentLang==='hi'?'समय-सारणी':'Timeline'}</p>
+      <div class="pl-1">${milestoneHTML}</div>
+    </div>`;
+}
+
+// ── Mandi Prices ───────────────────────────────────────────────────────────
+async function loadMandi() {
+  try {
+    const resp = await fetch('/api/mandi-prices');
+    if (await checkAuth(resp)) return;
+    const data = await resp.json();
+    mandiData   = data.prices;
+    mandiLoaded = true;
+    document.getElementById('mandi-updated').textContent = '⏱ ' + data.last_updated;
+    renderMandi(mandiData);
+  } catch (e) {
+    document.getElementById('mandi-grid').innerHTML = '<p class="text-red-500 text-sm">माहिती मिळाली नाही.</p>';
+  }
+}
+
+function renderMandi(prices) {
+  const grid = document.getElementById('mandi-grid');
+  if (!prices.length) { grid.innerHTML = '<p class="text-gray-500 text-sm col-span-2">काहीही मिळाले नाही.</p>'; return; }
+  grid.innerHTML = prices.map(p => {
+    const badge = p.trend === 'up'
+      ? `<span class="trend-up text-xs font-bold px-2 py-0.5 rounded-full">▲ ${p.change}</span>`
+      : p.trend === 'down'
+        ? `<span class="trend-down text-xs font-bold px-2 py-0.5 rounded-full">▼ ${p.change}</span>`
+        : `<span class="trend-same text-xs font-bold px-2 py-0.5 rounded-full">→ स्थिर</span>`;
+    const border = p.trend==='up'?'border-green-200':p.trend==='down'?'border-red-200':'border-gray-200';
+    return `<div class="bg-white border-2 ${border} rounded-2xl p-4 flex items-center justify-between shadow-sm">
+      <div><p class="font-semibold text-gray-800 text-sm">${p.crop}</p><p class="text-xs text-gray-400 mt-0.5">📍 ${p.market}</p></div>
+      <div class="text-right">
+        <p class="font-bold text-gray-900 text-lg brand">${p.price.toLocaleString('en-IN')}</p>
+        <p class="text-xs text-gray-400">${p.unit}</p>
+        <div class="mt-1">${badge}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterMandi() {
+  const q = document.getElementById('mandi-search').value.toLowerCase();
+  renderMandi(mandiData.filter(p => p.crop.toLowerCase().includes(q)));
+}
+
+// ── Schemes ────────────────────────────────────────────────────────────────
+async function loadSchemes() {
+  schemesLoaded = true;
+  try {
+    const resp = await fetch('/api/schemes');
+    if (await checkAuth(resp)) return;
+    const data = await resp.json();
+    const profEl = document.getElementById('schemes-profile-text');
+    if (profEl) profEl.textContent = ` वय ${data.user_age}, ${data.user_gender}`;
+    const list = document.getElementById('schemes-list');
+    if (!data.schemes.length) { list.innerHTML = '<p class="text-gray-500 text-sm">तुमच्यासाठी योग्य योजना आढळल्या नाहीत.</p>'; return; }
+    list.innerHTML = data.schemes.map(s => `
+      <div class="scheme-card">
+        <div class="flex items-start gap-3">
+          <span class="text-3xl mt-0.5">🏛️</span>
+          <div class="flex-1 min-w-0">
+            <h4 class="font-bold text-gray-900 text-sm leading-snug mb-1">${s.name}</h4>
+            <p class="text-gray-600 text-xs mb-1.5">💰 ${s.benefit}</p>
+            <p class="text-gray-400 text-xs mb-2.5">✅ ${s.eligibility}</p>
+            <a href="${s.link}" target="_blank" rel="noopener"
+               class="inline-flex items-center gap-1 text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 transition font-medium">
+              अर्ज करा / अधिक जाणा →
+            </a>
+          </div>
+        </div>
+      </div>`).join('');
+  } catch (e) {
+    document.getElementById('schemes-list').innerHTML = '<p class="text-red-500 text-sm">माहिती मिळाली नाही.</p>';
+  }
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  // Set max date for roadmap
+  const today = new Date().toISOString().split('T')[0];
+  const rmDate = document.getElementById('rm-date');
+  if (rmDate) rmDate.max = today;
+
+  // Apply Marathi default
+  setLang('mr');
+});
+</script>
+</body>
+</html>
