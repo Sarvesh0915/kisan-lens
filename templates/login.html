@@ -1,0 +1,427 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KisanLens – Login</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Noto+Sans:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    body { font-family: 'Noto Sans', sans-serif; }
+    .brand { font-family: 'Baloo 2', cursive; }
+
+    .leaf-bg {
+      background-color: #0f4c2a;
+      background-image:
+        radial-gradient(ellipse at 20% 80%, rgba(34,197,94,0.18) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 20%, rgba(250,204,21,0.12) 0%, transparent 50%);
+    }
+    .card-shadow { box-shadow: 0 20px 60px rgba(0,0,0,0.25); }
+    input:focus { outline: none; box-shadow: 0 0 0 3px rgba(34,197,94,0.35); }
+
+    /* ── OTP section slide-down animation ───────────────────────── */
+    #otp-section {
+      max-height: 0;
+      overflow: hidden;
+      opacity: 0;
+      transform: translateY(-8px);
+      transition:
+        max-height 0.45s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity    0.35s ease 0.08s,
+        transform  0.35s ease 0.08s;
+    }
+    #otp-section.visible {
+      max-height: 300px;   /* tall enough for the content */
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ── OTP digit boxes ─────────────────────────────────────────── */
+    .otp-box {
+      width: 48px; height: 56px;
+      font-size: 1.4rem; font-weight: 700;
+      text-align: center;
+      border: 2px solid #d1fae5;
+      border-radius: 12px;
+      background: #f0fdf4;
+      color: #065f46;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      caret-color: #16a34a;
+    }
+    .otp-box:focus {
+      border-color: #16a34a;
+      box-shadow: 0 0 0 3px rgba(22,163,74,0.25);
+      outline: none;
+    }
+    .otp-box.filled { border-color: #16a34a; background: #dcfce7; }
+    .otp-box.error  { border-color: #ef4444; background: #fef2f2; animation: shake 0.3s ease; }
+
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      25%      { transform: translateX(-4px); }
+      75%      { transform: translateX(4px); }
+    }
+
+    /* ── Spinner ─────────────────────────────────────────────────── */
+    .spinner {
+      width:18px; height:18px;
+      border: 2.5px solid rgba(255,255,255,0.4);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: inline-block; vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Success tick ────────────────────────────────────────────── */
+    #success-banner {
+      display: none;
+      animation: fadeIn 0.4s ease;
+    }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+
+    /* ── Countdown ───────────────────────────────────────────────── */
+    #resend-countdown { transition: opacity 0.3s; }
+  </style>
+</head>
+<body class="leaf-bg min-h-screen flex items-center justify-center px-4 py-10">
+
+  <div class="w-full max-w-sm">
+
+    <!-- Logo -->
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-green-400 mb-3 shadow-lg">
+        <span class="text-4xl">🌿</span>
+      </div>
+      <h1 class="brand text-4xl text-white font-extrabold tracking-tight">KisanLens</h1>
+      <p class="text-green-300 text-sm mt-1">Smart Tools for Every Farmer</p>
+    </div>
+
+    <!-- Card -->
+    <div class="bg-white rounded-3xl card-shadow px-7 py-8">
+
+      <h2 class="brand text-2xl text-gray-800 font-bold mb-1">Welcome back 👋</h2>
+      <p class="text-gray-500 text-sm mb-6" id="subtitle">Enter your phone number to receive an OTP</p>
+
+      <!-- Error / info banner -->
+      <div id="msg-banner" class="hidden mb-4 px-4 py-3 rounded-xl text-sm font-medium"></div>
+
+      <!-- ── STEP 1: Phone number ─────────────────────────────────── -->
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1.5" for="phone-input">
+          📱 Phone Number
+        </label>
+        <input
+          id="phone-input"
+          type="tel"
+          inputmode="numeric"
+          placeholder="e.g. 9876543210"
+          maxlength="10"
+          pattern="[0-9]{10}"
+          autocomplete="tel"
+          class="w-full border border-gray-200 rounded-xl px-4 py-3.5 text-gray-800 text-base bg-gray-50 transition"
+          oninput="onPhoneInput()"
+        />
+      </div>
+
+      <!-- ── STEP 2: OTP boxes (hidden until OTP sent) ───────────── -->
+      <div id="otp-section">
+        <label class="block text-sm font-medium text-gray-700 mb-3">
+          🔑 Enter 6-digit OTP
+        </label>
+
+        <!-- 6 individual digit boxes -->
+        <div class="flex justify-between gap-2 mb-3" id="otp-boxes">
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" data-index="0" />
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" data-index="1" />
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" data-index="2" />
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" data-index="3" />
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" data-index="4" />
+          <input class="otp-box" type="text" inputmode="numeric" maxlength="1" data-index="5" />
+        </div>
+
+        <!-- Resend / countdown -->
+        <div id="resend-countdown" class="text-xs text-gray-400 text-center mb-4">
+          Resend OTP in <span id="timer-val" class="font-semibold text-gray-600">5:00</span>
+        </div>
+        <button
+          id="resend-btn"
+          onclick="resendOtp()"
+          class="hidden w-full text-sm text-green-600 font-semibold underline mb-4 text-center"
+        >
+          Resend OTP
+        </button>
+      </div>
+
+      <!-- ── Action button (morphs between steps) ───────────────── -->
+      <button
+        id="main-btn"
+        onclick="handleMainBtn()"
+        class="w-full bg-green-600 hover:bg-green-700 active:scale-95 text-white font-bold text-lg rounded-xl py-3.5 transition-all duration-150 shadow-md flex items-center justify-center gap-2"
+      >
+        <span id="btn-text">Send OTP</span>
+        <span id="btn-icon">→</span>
+      </button>
+
+      <!-- Signup link -->
+      <p class="text-center text-gray-500 text-sm mt-6">
+        New farmer?
+        <a href="/signup" class="text-green-600 font-semibold hover:underline">Register here</a>
+      </p>
+    </div>
+
+    <p class="text-center text-green-300/60 text-xs mt-6">KisanLens · Built for Bharat's Farmers</p>
+  </div>
+
+
+<!-- ════════════════════════════════════════════════════════════════
+     JavaScript
+═══════════════════════════════════════════════════════════════════ -->
+<script>
+// ── State ─────────────────────────────────────────────────────────────────
+let step          = 'phone';  // 'phone' | 'otp'
+let otpTimer      = null;
+let timerSeconds  = 300;      // 5 minutes
+
+const phoneInput  = document.getElementById('phone-input');
+const otpSection  = document.getElementById('otp-section');
+const mainBtn     = document.getElementById('main-btn');
+const btnText     = document.getElementById('btn-text');
+const btnIcon     = document.getElementById('btn-icon');
+const msgBanner   = document.getElementById('msg-banner');
+const subtitle    = document.getElementById('subtitle');
+const otpBoxes    = Array.from(document.querySelectorAll('.otp-box'));
+
+
+// ── Helper: show message banner ───────────────────────────────────────────
+function showMsg(text, type = 'error') {
+  msgBanner.textContent = text;
+  msgBanner.className = `mb-4 px-4 py-3 rounded-xl text-sm font-medium ${
+    type === 'error'   ? 'bg-red-50 text-red-700 border border-red-200' :
+    type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' :
+                         'bg-blue-50 text-blue-700 border border-blue-200'
+  }`;
+  msgBanner.classList.remove('hidden');
+}
+function hideMsg() { msgBanner.classList.add('hidden'); }
+
+
+// ── Helper: button loading state ──────────────────────────────────────────
+function setLoading(loading) {
+  mainBtn.disabled = loading;
+  if (loading) {
+    mainBtn.innerHTML = '<span class="spinner"></span>';
+  } else {
+    mainBtn.innerHTML = `<span id="btn-text">${step === 'phone' ? 'Send OTP' : 'Verify & Login'}</span>
+                         <span id="btn-icon">${step === 'phone' ? '→' : '✓'}</span>`;
+  }
+}
+
+
+// ── Phone input: keep only digits ─────────────────────────────────────────
+function onPhoneInput() {
+  phoneInput.value = phoneInput.value.replace(/\D/g, '').slice(0, 10);
+  hideMsg();
+}
+
+
+// ── Route button click to correct step ───────────────────────────────────
+function handleMainBtn() {
+  if (step === 'phone') sendOtp();
+  else verifyOtp();
+}
+
+
+// ── STEP 1: Send OTP ──────────────────────────────────────────────────────
+async function sendOtp() {
+  const phone = phoneInput.value.trim();
+  if (phone.length !== 10) {
+    showMsg('Please enter a valid 10-digit phone number.');
+    phoneInput.focus();
+    return;
+  }
+
+  hideMsg();
+  setLoading(true);
+
+  try {
+    const res  = await fetch('/send-otp', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ phone }),
+    });
+    const data = await res.json();
+
+    if (!data.success) {
+      showMsg(data.error || 'Could not send OTP. Please try again.');
+      setLoading(false);
+      return;
+    }
+
+    // ── Transition to OTP step ─────────────────────────────────────────
+    step = 'otp';
+    phoneInput.readOnly = true;
+    phoneInput.classList.add('opacity-60');
+
+    otpSection.classList.add('visible');
+    subtitle.textContent = `OTP sent to ${maskPhone(phone)}`;
+
+    setLoading(false);               // resets button label to "Verify & Login"
+    mainBtn.classList.replace('bg-green-600', 'bg-green-700');
+    mainBtn.innerHTML = `<span>Verify &amp; Login</span><span>✓</span>`;
+    mainBtn.disabled = false;
+
+    showMsg(data.message, 'success');
+
+    // Focus first OTP box
+    setTimeout(() => otpBoxes[0].focus(), 450);
+
+    // Start countdown
+    startCountdown();
+
+  } catch {
+    showMsg('Network error. Please check your connection.');
+    setLoading(false);
+  }
+}
+
+
+// ── STEP 2: Verify OTP ────────────────────────────────────────────────────
+async function verifyOtp() {
+  const phone = phoneInput.value.trim();
+  const otp   = otpBoxes.map(b => b.value).join('');
+
+  if (otp.length !== 6 || !/^\d{6}$/.test(otp)) {
+    showMsg('Please enter all 6 digits of your OTP.');
+    shakeBoxes();
+    return;
+  }
+
+  hideMsg();
+  setLoading(true);
+
+  try {
+    const res  = await fetch('/verify-otp', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ phone, otp }),
+    });
+    const data = await res.json();
+
+    if (!data.success) {
+      showMsg(data.error || 'Incorrect OTP. Please try again.');
+      shakeBoxes();
+      setLoading(false);
+      return;
+    }
+
+    // ── Success ─────────────────────────────────────────────────────────
+    clearInterval(otpTimer);
+    showMsg('✅ Verified! Logging you in…', 'success');
+    otpBoxes.forEach(b => b.classList.add('filled'));
+
+    setTimeout(() => { window.location.href = data.redirect; }, 700);
+
+  } catch {
+    showMsg('Network error. Please check your connection.');
+    setLoading(false);
+  }
+}
+
+
+// ── Resend OTP ────────────────────────────────────────────────────────────
+async function resendOtp() {
+  // Reset boxes
+  otpBoxes.forEach(b => { b.value = ''; b.classList.remove('filled','error'); });
+  hideMsg();
+  document.getElementById('resend-btn').classList.add('hidden');
+
+  // Re-send
+  step = 'phone';                         // trick sendOtp to run cleanly
+  phoneInput.readOnly = false;
+  await sendOtp();
+}
+
+
+// ── OTP input: auto-advance, backspace, paste ─────────────────────────────
+otpBoxes.forEach((box, i) => {
+  box.addEventListener('input', e => {
+    // Strip non-digits
+    box.value = box.value.replace(/\D/g, '').slice(-1);
+    box.classList.toggle('filled', box.value !== '');
+
+    // Auto-advance
+    if (box.value && i < 5) otpBoxes[i + 1].focus();
+
+    // Auto-submit if all filled
+    if (otpBoxes.every(b => b.value !== '')) verifyOtp();
+  });
+
+  box.addEventListener('keydown', e => {
+    if (e.key === 'Backspace' && !box.value && i > 0) {
+      otpBoxes[i - 1].value = '';
+      otpBoxes[i - 1].classList.remove('filled');
+      otpBoxes[i - 1].focus();
+    }
+  });
+
+  // Handle paste (e.g. from SMS auto-fill)
+  box.addEventListener('paste', e => {
+    e.preventDefault();
+    const pasted = (e.clipboardData || window.clipboardData)
+      .getData('text').replace(/\D/g, '').slice(0, 6);
+    pasted.split('').forEach((ch, j) => {
+      if (otpBoxes[j]) {
+        otpBoxes[j].value = ch;
+        otpBoxes[j].classList.add('filled');
+      }
+    });
+    const next = pasted.length < 6 ? otpBoxes[pasted.length] : otpBoxes[5];
+    next.focus();
+    if (pasted.length === 6) verifyOtp();
+  });
+});
+
+
+// ── Shake animation on wrong OTP ──────────────────────────────────────────
+function shakeBoxes() {
+  otpBoxes.forEach(b => {
+    b.classList.add('error');
+    b.addEventListener('animationend', () => b.classList.remove('error'), { once: true });
+  });
+}
+
+
+// ── 5-minute countdown ────────────────────────────────────────────────────
+function startCountdown() {
+  timerSeconds = 300;
+  document.getElementById('resend-countdown').style.opacity = '1';
+  document.getElementById('resend-btn').classList.add('hidden');
+
+  clearInterval(otpTimer);
+  otpTimer = setInterval(() => {
+    timerSeconds--;
+    const m = String(Math.floor(timerSeconds / 60)).padStart(1,'0');
+    const s = String(timerSeconds % 60).padStart(2,'0');
+    const el = document.getElementById('timer-val');
+    if (el) el.textContent = `${m}:${s}`;
+
+    if (timerSeconds <= 0) {
+      clearInterval(otpTimer);
+      document.getElementById('resend-countdown').style.opacity = '0';
+      document.getElementById('resend-btn').classList.remove('hidden');
+    }
+  }, 1000);
+}
+
+
+// ── Phone masking for display ─────────────────────────────────────────────
+function maskPhone(phone) {
+  return phone.slice(0, 2) + '******' + phone.slice(-2);
+}
+</script>
+
+</body>
+</html>
