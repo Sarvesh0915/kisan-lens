@@ -79,6 +79,14 @@ print("✅ [KisanLens] Supabase client initialised →", _supabase_url, flush=Tr
 OTP_DIGITS         = 6
 OTP_EXPIRY_MINUTES = 5
 
+# ── Play Store review test account (bypasses the real SMS gateway) ─────────
+# Google Play reviewers cannot receive a real SMS OTP, so this fixed
+# phone number + OTP pair is issued to them via Play Console → Policy →
+# App content → App access. Real farmers are completely unaffected —
+# this only ever matches if someone enters EXACTLY this phone number.
+TEST_PHONE = "9999999999"
+TEST_OTP   = "123456"
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  SMS gateway — Bulk Blaster OTP API
 #  Endpoint and payload keys match the official Integration Guide exactly:
@@ -316,6 +324,12 @@ def send_otp():
          frontend to the OTP input step.
          On gateway failure  → log the error server-side and return a clear,
          user-friendly error message to the UI (never expose raw exception text).
+
+    EXCEPTION — Play Store review test account:
+      If the phone number matches TEST_PHONE exactly, the real SMS gateway
+      call is skipped entirely and a fixed OTP (TEST_OTP) is stored instead.
+      This only triggers for that one exact number — every other phone number
+      goes through the full real flow below, unchanged.
     """
     body  = request.get_json(silent=True) or {}
     phone = str(body.get("phone", "")).strip()
@@ -348,6 +362,20 @@ def send_otp():
             "success": False,
             "error":   "Phone number not found. Please sign up first.",
         }), 404
+
+    # ── Play Store reviewer bypass — skip the real SMS gateway entirely ──────
+    # Only fires for the exact TEST_PHONE number. You must first add a row
+    # for this phone number in the Supabase `users` table (see setup notes),
+    # otherwise Step 2 above will already have rejected it as "not found".
+    if phone == TEST_PHONE:
+        expiry = (datetime.utcnow() + timedelta(minutes=OTP_EXPIRY_MINUTES)).isoformat()
+        session["otp_data"] = {"phone": phone, "otp": TEST_OTP, "expiry": expiry}
+        masked = phone[:2] + ("*" * 6) + phone[-2:]
+        app.logger.info("[send-otp] Play Store test OTP issued (SMS gateway skipped)")
+        return jsonify({
+            "success": True,
+            "message": f"OTP sent to {masked}",
+        })
 
     # ── Step 3: Generate OTP ──────────────────────────────────────────────────
     otp    = str(random.randint(10 ** (OTP_DIGITS - 1), 10 ** OTP_DIGITS - 1))
@@ -455,6 +483,10 @@ def verify_otp():
 
     Checks: session exists → phone matches → not expired → OTP correct.
     On success: clears OTP from session, sets session["user"], returns redirect URL.
+
+    No special-casing is needed here for the Play Store test account — it
+    already went through the exact same session-based OTP storage in
+    send_otp(), so it is verified by the same code path as every real user.
     """
     body      = request.get_json(silent=True) or {}
     phone     = str(body.get("phone", "")).strip()
