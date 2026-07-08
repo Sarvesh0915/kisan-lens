@@ -801,6 +801,17 @@ input[type=range]{accent-color:var(--green);}
       🚪 <span data-i18n="account_logout">लॉगआउट करा</span>
     </a>
 
+    <!-- Delete Account — placed below Logout, intentionally understated
+         (plain text link, not a filled button) so it doesn't compete
+         visually with everyday actions, but is still easy to find when
+         someone is actually looking for it. Points to the public
+         /delete-account page (GET route in app.py, no login required
+         to view — matches the Play Store Data Safety requirement). -->
+    <a href="/delete-account"
+       class="block w-full text-center text-red-400 hover:text-red-600 text-sm font-medium underline underline-offset-2 py-2 transition">
+      🗑️ <span data-i18n="account_delete">खाते कायमचे हटवा</span>
+    </a>
+
     <p class="text-center text-gray-300 text-xs pt-2">KisanLens v1.0</p>
   </div>
 </div>
@@ -893,6 +904,7 @@ const LANG_DICT = {
     footer_copyright:"© 2026 KisanLens. सर्व हक्क राखीव.",
     account_title:"माझे खाते", account_sub:"प्रोफाइल व सेटिंग्ज", account_lang:"भाषा निवडा",
     account_privacy:"गोपनीयता धोरण", account_terms:"सेवा नियम", account_help:"मदत व संपर्क", account_logout:"लॉगआउट करा",
+    account_delete:"खाते कायमचे हटवा",
   },
   hi: {
     welcome_sub:"नमस्कार 🙏", welcome_guest: GUEST_OR_USER_NAME + " 👋", welcome_desc:"आज खेत कैसा है?",
@@ -925,6 +937,7 @@ const LANG_DICT = {
     footer_copyright:"© 2026 KisanLens. सर्वाधिकार सुरक्षित.",
     account_title:"मेरा खाता", account_sub:"प्रोफाइल और सेटिंग्स", account_lang:"भाषा चुनें",
     account_privacy:"गोपनीयता नीति", account_terms:"सेवा शर्तें", account_help:"सहायता और संपर्क", account_logout:"लॉगआउट करें",
+    account_delete:"खाता स्थायी रूप से हटाएं",
   },
   en: {
     welcome_sub:"Hello 🙏", welcome_guest: GUEST_OR_USER_NAME + " 👋", welcome_desc:"How is your farm today?",
@@ -957,6 +970,7 @@ const LANG_DICT = {
     footer_copyright:"© 2026 KisanLens. All Rights Reserved.",
     account_title:"My Account", account_sub:"Profile & Settings", account_lang:"Choose Language",
     account_privacy:"Privacy Policy", account_terms:"Terms of Service", account_help:"Help & Support", account_logout:"Log Out",
+    account_delete:"Permanently Delete Account",
   }
 };
 
