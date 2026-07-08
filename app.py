@@ -1,7 +1,7 @@
 """
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║  KisanLens — Flask Backend                                                  ║
-║  Version: 6.0 (Guest Mode / Try-Before-You-Buy)                             ║
+║  Version: 6.1 (Guest Mode / Try-Before-You-Buy + Account Deletion)          ║
 ║                                                                              ║
 ║  Auth     : Passwordless OTP — phone number is the unique identifier         ║
 ║  Storage  : Supabase (PostgreSQL) — cloud-hosted, production-grade          ║
@@ -218,7 +218,7 @@ def signup():
     """
     Passwordless registration.
     Fields: name, phone, age, gender, dob.
-    On success → insert into SQLite and auto-login to dashboard.
+    On success → insert into Supabase and auto-login to dashboard.
     """
     if request.method == "POST":
         name   = request.form.get("name",   "").strip()
@@ -543,6 +543,166 @@ def verify_otp():
         "dob":    user["dob"],
     }
     return jsonify({"success": True, "redirect": url_for("dashboard")})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Account deletion (Play Store Data Safety requirement)
+#
+#  Google requires a publicly reachable page (no login needed to VIEW it)
+#  that explains how a user can request deletion of their account and data.
+#  Since KisanLens is fully passwordless, the deletion action itself is
+#  gated behind the same OTP proof-of-ownership used for login — this
+#  keeps a stranger from deleting someone else's account just by knowing
+#  their phone number.
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.route("/delete-account", methods=["GET"])
+def delete_account_page():
+    """
+    Public info + self-service page — intentionally has NO @login_required
+    so that Google Play reviewers (and logged-out farmers) can load it and
+    get a 200 response. Renders templates/delete_account.html.
+    """
+    return render_template("delete_account.html")
+
+
+@app.route("/api/delete-account/request-otp", methods=["POST"])
+def delete_account_request_otp():
+    """
+    Body (JSON): { "phone": "9876543210" }
+
+    Sends an OTP to prove ownership of the phone number before deletion.
+    Uses a SEPARATE session key ("delete_otp_data") from the login OTP
+    ("otp_data") so an in-progress login and an in-progress deletion
+    request never collide with each other.
+    """
+    body  = request.get_json(silent=True) or {}
+    phone = str(body.get("phone", "")).strip()
+
+    if not phone.isdigit() or len(phone) != 10:
+        return jsonify({"success": False, "error": "Enter a valid 10-digit phone number."}), 400
+
+    try:
+        user_query = (
+            supabase.table("users")
+            .select("phone")
+            .eq("phone", phone)
+            .execute()
+        )
+    except Exception as db_exc:
+        app.logger.error("[delete-account] Supabase query error: %s", db_exc)
+        return jsonify({"success": False, "error": "A server error occurred. Please try again."}), 500
+
+    if not user_query.data:
+        return jsonify({"success": False, "error": "No account found with this phone number."}), 404
+
+    otp    = str(random.randint(10 ** (OTP_DIGITS - 1), 10 ** OTP_DIGITS - 1))
+    expiry = (datetime.utcnow() + timedelta(minutes=OTP_EXPIRY_MINUTES)).isoformat()
+    session["delete_otp_data"] = {"phone": phone, "otp": otp, "expiry": expiry}
+
+    payload = {
+        "apiKey":    os.getenv("MERA_OTP_API_KEY"),
+        "phone":     phone,
+        "otp":       otp,
+        "brandName": SMS_BRAND_NAME,
+    }
+    headers = {"Content-Type": "application/json"}
+
+    try:
+        gw_response = requests.post(
+            SMS_GATEWAY_URL,
+            json=payload,
+            headers=headers,
+            timeout=SMS_GATEWAY_TIMEOUT,
+        )
+        gw_response.raise_for_status()
+
+        gw_body = {}
+        try:
+            gw_body = gw_response.json()
+        except ValueError:
+            app.logger.error("[delete-account] Gateway returned non-JSON body: %s", gw_response.text[:200])
+
+        if gw_body.get("success") is False:
+            gateway_error = gw_body.get("error", "Unknown gateway error.")
+            app.logger.error("[delete-account] Gateway rejected send: %s", gateway_error)
+            session.pop("delete_otp_data", None)
+            return jsonify({"success": False, "error": f"SMS could not be sent: {gateway_error}"}), 502
+
+    except requests.exceptions.Timeout:
+        app.logger.error("[delete-account] SMS gateway timed out for phone ending %s", phone[-4:])
+        session.pop("delete_otp_data", None)
+        return jsonify({"success": False, "error": "SMS gateway timed out. Please try again."}), 503
+
+    except requests.exceptions.ConnectionError as conn_err:
+        app.logger.error("[delete-account] SMS gateway connection error: %s", conn_err)
+        session.pop("delete_otp_data", None)
+        return jsonify({"success": False, "error": "Could not reach the SMS gateway. Please retry."}), 503
+
+    except requests.exceptions.HTTPError as http_err:
+        status = gw_response.status_code if gw_response else "unknown"
+        app.logger.error("[delete-account] SMS gateway HTTP %s error: %s", status, http_err)
+        session.pop("delete_otp_data", None)
+        return jsonify({"success": False, "error": f"SMS gateway rejected the request (HTTP {status})."}), 502
+
+    except requests.exceptions.RequestException as req_err:
+        app.logger.error("[delete-account] Unexpected SMS gateway error: %s", req_err)
+        session.pop("delete_otp_data", None)
+        return jsonify({"success": False, "error": "An unexpected error occurred. Please try again."}), 500
+
+    masked = phone[:2] + ("*" * 6) + phone[-2:]
+    return jsonify({"success": True, "message": f"OTP sent to {masked}"})
+
+
+@app.route("/api/delete-account/confirm", methods=["POST"])
+def delete_account_confirm():
+    """
+    Body (JSON): { "phone": "9876543210", "otp": "482917" }
+
+    Verifies the deletion OTP, then permanently deletes the user's row
+    from Supabase. If the requester is currently logged in as that same
+    phone number, their session is cleared too.
+    """
+    body      = request.get_json(silent=True) or {}
+    phone     = str(body.get("phone", "")).strip()
+    otp_input = str(body.get("otp", "")).strip()
+
+    otp_data = session.get("delete_otp_data")
+
+    if not otp_data:
+        return jsonify({"success": False, "error": "Session expired. Please request a new OTP."}), 400
+
+    if otp_data.get("phone") != phone:
+        return jsonify({"success": False, "error": "Phone number mismatch."}), 400
+
+    try:
+        expiry_dt = datetime.fromisoformat(otp_data["expiry"])
+    except (KeyError, ValueError):
+        session.pop("delete_otp_data", None)
+        return jsonify({"success": False, "error": "Invalid session data. Please try again."}), 400
+
+    if datetime.utcnow() > expiry_dt:
+        session.pop("delete_otp_data", None)
+        return jsonify({"success": False, "error": "OTP has expired. Please request a new one."}), 400
+
+    if otp_data["otp"] != otp_input:
+        return jsonify({"success": False, "error": "Incorrect OTP. Please try again."}), 401
+
+    try:
+        supabase.table("users").delete().eq("phone", phone).execute()
+    except Exception as exc:
+        app.logger.error("[delete-account] Supabase delete error: %s", exc)
+        return jsonify({"success": False, "error": "Deletion failed due to a server error. Please try again."}), 500
+
+    session.pop("delete_otp_data", None)
+
+    # If the person deleting is also currently logged in as this phone,
+    # end their session too so they aren't left in a stale logged-in state.
+    if session.get("user", {}).get("phone") == phone:
+        session.clear()
+
+    app.logger.info("[delete-account] Account deleted for phone ending %s", phone[-4:])
+    return jsonify({"success": True, "message": "Your account and all associated data have been permanently deleted."})
 
 
 # ─────────────────────────────────────────────────────────────────────────────
