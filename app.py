@@ -8,7 +8,7 @@
 ║  OTP      : 6-digit code, 5-minute TTL, delivered via live SMS gateway      ║
 ║  SMS GW   : BulkBlaster MeraOTP  (asia-south1.run.app)                     ║
 ║  Languages: English (en) · Hindi (hi) · Marathi (mr)                       ║
-║  AI Model : google/gemini-1.5-flash via google-generativeai SDK             ║
+║  AI Model : google/gemini-2.5-flash via google-generativeai SDK             ║
 ║                                                                              ║
 ║  NO sqlite3 · NO local .db file · NO gspread · NO google.oauth2            ║
 ║  NO password column · NO werkzeug hashing                                   ║
@@ -45,7 +45,7 @@ app.secret_key = os.getenv("FLASK_SECRET_KEY", "kisan-dev-secret-change-in-prod"
 #  Model: gemini-1.5-flash  (fast, multimodal, handles image + text)
 # ─────────────────────────────────────────────────────────────────────────────
 genai.configure(api_key=os.getenv("GEMINI_API_KEY", ""))
-gemini_model = genai.GenerativeModel("gemini-1.5-flash")
+gemini_model = genai.GenerativeModel("gemini-2.5-flash")
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Supabase client — production cloud database
